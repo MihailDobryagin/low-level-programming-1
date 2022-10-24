@@ -14,7 +14,7 @@ struct Insert_node {
 };
 
 struct Get_nodes {
-	Node_selection_mode selection_mode;
+	enum Node_selection_mode selection_mode;
 	union {
 		struct Field* ids;
 		bool (*predicate)(struct Node);
@@ -26,7 +26,7 @@ struct Get_nodes {
 };
 
 struct Delete_nodes {
-	Node_selection_mode selection_mode;
+	enum Node_selection_mode selection_mode;
 	union {
 		Field* ids;
 		bool (*predicate)(struct Node);
@@ -38,7 +38,7 @@ struct Delete_nodes {
 };
 
 struct Update_nodes {
-	Node_selection_mode selection_mode;
+	enum Node_selection_mode selection_mode;
 	union {
 		Field* ids;
 		bool (*predicate)(struct Node);

@@ -2,6 +2,7 @@
 #define entities_h
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum Type {
 	BYTE,
@@ -12,7 +13,7 @@ enum Type {
 };
 
 struct Field {
-	Type type;
+	enum Type type;
 	union {
 		int8_t byte;
 		char* string;
@@ -33,7 +34,7 @@ enum Tag_type {
 };
 
 struct Tag {
-	Tag_type type;
+	enum Tag_type type;
 	char* name; // id
     char** property_names;
 };
