@@ -1,8 +1,11 @@
 BUILD_DIR=build
 SRC_DIR=src
 
-run: build
+run: before build
 	$(BUILD_DIR)/Program
+
+before:
+	mkdir $(BUILD_DIR)
 
 build: main.o file.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
