@@ -27,9 +27,15 @@ struct Property {
 	struct Field field;
 };
 
+enum Tag_type {
+	NODE,
+	EDGE
+};
+
 struct Tag {
-	char* name;
-	struct Field* fields;
+	Tag_type type;
+	char* name; // id
+    char** property_names;
 };
 
 struct Node {
@@ -39,6 +45,7 @@ struct Node {
 };
 
 struct Edge {
+	char* tag;
 	struct Field node1_id;
 	struct Field node2_id;
 	struct Property* properties;
