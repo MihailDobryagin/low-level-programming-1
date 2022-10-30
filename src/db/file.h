@@ -1,7 +1,7 @@
 #ifndef file_h
 #define file_h
 
-#include "local_enities.h"
+#include "local_entities.h"
 
 Storage* init_storage(char* file_name);
 

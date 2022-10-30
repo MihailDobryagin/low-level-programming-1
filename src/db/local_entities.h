@@ -1,33 +1,34 @@
 #ifndef local_entities_h
 #define local_entities_h
 
-#include "entities.h"
+#include <stdio.h>
+#include "../view/entities.h"
 
-struct {
+typedef struct {
 	struct Node node;
 	int32_t local_id;
 } Extended_node;
 
-struct {
+typedef struct {
 	struct Edge edge;
 	int32_t local_id;
 } Extended_edge;
 
-struct {
+typedef struct {
 	struct Tag tag;
 	
 } Extended_tag;
 
-struct {
+typedef struct {
 	uint32_t blocks_number;
 	uint32_t headers_offset;
 	uint64_t data_offset;
 } Metadata;
 
 enum Header_type {
-	TAG,
-	NODE,
-	EDGE
+	TAG_HEADER,
+	NODE_HEADER,
+	EDGE_HEADER
 };
 
 enum Block_status {
@@ -35,17 +36,18 @@ enum Block_status {
 	EMPTY
 };
 
-struct {
-	enum HeaderType type;
+typedef struct {
+	enum Header_type type;
 	enum Block_status status;
 	uint32_t id;
 	uint64_t data_offset;
+	uint64_t data_size;
 	uint32_t next_block_offset;
 } Header_block;
 
-struct {
+typedef struct {
 	FILE* file;
-	struct Metadata metadata;
+	Metadata metadata;
 } Storage;
 
 

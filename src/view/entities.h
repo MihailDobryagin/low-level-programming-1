@@ -34,8 +34,8 @@ struct Property {
 };
 
 enum Tag_type {
-	NODE,
-	EDGE
+	NODE_TAG_TYPE,
+	EDGE_TAG_TYPE
 };
 
 struct Tag {

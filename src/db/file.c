@@ -1,16 +1,16 @@
 #include "file.h"
+#include <stdlib.h>
 #include <assert.h>
 
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
 	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata));
-	fread()
 	size_t readen_for_metadata = fread(metadata_buff, sizeof(Metadata), 1, file);
 	
 	Storage* storage = (Storage*)malloc(sizeof(Storage*));
 	storage->file = file;
 	
-	if(readen_for_metadata) {
+	if(readen_for_metadata == 0) {
 		printf("Metadata не прочиталась\n");
 		Metadata metadata = {
 			.blocks_number = 0,
