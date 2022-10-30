@@ -9,6 +9,14 @@ enum Node_selection_mode {
 	BY_RELATION,
 };
 
+struct Create_tag {
+	struct Tag tag;
+};
+
+struct Delete_tag {
+	char* tag_name;
+};
+
 struct Insert_node {
 	struct Node node;
 };

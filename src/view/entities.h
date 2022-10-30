@@ -12,6 +12,11 @@ enum Type {
 	CHARACTER
 };
 
+enum Edge_type {
+	BIDIRECTIONAL,
+	UNIDIRECTIONAL
+};
+
 struct Field {
 	enum Type type;
 	union {
