@@ -41,12 +41,15 @@ typedef enum {
 typedef struct {
 	Tag_type type;
 	char* name; // id
+	uint32_t properties_size;
+	Type* property_types;
     char** property_names;
 } Tag;
 
 typedef struct {
 	char* tag;
 	Field id;
+	uint32_t properties_size;
 	Property* properties;
 } Node;
 
@@ -54,6 +57,7 @@ typedef struct {
 	char* tag;
 	Field node1_id;
 	Field node2_id;
+	uint32_t properties_size;
 	Property* properties;
 } Edge;
 

@@ -16,13 +16,7 @@ typedef struct {
 
 typedef struct {
 	Tag tag;
-	
 } Extended_tag;
-
-typedef struct {
-	FILE* file;
-	Metadata metadata;
-} Storage;
 
 
 #endif // !local_entities_h

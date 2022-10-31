@@ -4,40 +4,65 @@
 #include "local_entities.h"
 
 typedef struct {
-	uint32_t blocks_number;
+	uint32_t blocks_size; // size of working+draft
+	uint32_t blocks_capacity;
+	uint32_t data_size; // working+draft
 	uint32_t headers_offset;
 	uint64_t data_offset;
 } Metadata;
 
-typedef enum {
-	TAG_HEADER,
-	NODE_HEADER,
-	EDGE_HEADER
-} Header_type;
+typedef struct {
+	FILE* file;
+	Metadata metadata;
+} Storage;
 
 typedef enum {
-	GOOD,
-	EMPTY
+	TAG_ENTITY,
+	NODE_ENTITY,
+	EDGE_ENTITY
+} Entity_type;
+
+typedef enum {
+	WORKING,
+	DRAFT,
+	EMPTY,
+	DELETED // USELESS NOW
 } Block_status;
 
 typedef struct {
-	Header_type type;
+	Entity_type type;
 	Block_status status;
-	uint32_t id;
 	uint64_t data_offset;
 	uint64_t data_size;
-	uint32_t next_block_offset;
 } Header_block;
 
 typedef struct {
-	Type
+	Tag tag;
+} Tag_data;
+
+typedef struct {
+	union {
+		Extended_tag tag;
+		Extended_node node;
+		Extended_edge edge;
+	};
 } Data_block;
+
+typedef struct {
+	union {
+		Extended_tag tag;
+		Extended_node node;
+		Extended_edge edge;
+	};
+	Entity_type type;
+} Data_to_add;
+
 
 Storage* init_storage(char* file_name);
 
-Header_block add(Storage* storage, Header_block header, );
+void add_entity(Storage* storage, Data_to_add data);
 
-void add(Storage* storage, Header_block* header);
+void expand_storage(Storage* storage);
 
 void collapse(Storage* storage);
 
