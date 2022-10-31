@@ -11,6 +11,10 @@ before:
 build: main.o file.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
 	mv $(BUILD_DIR)/Program .
+	
+rebuild: clean before main.o file.o
+	cd build; gcc -B $(BUILD_DIR) $^ -o Program
+	mv $(BUILD_DIR)/Program .
 
 main.o: $(SRC_DIR)/main.c
 	gcc -c $< -o $(BUILD_DIR)/main.o

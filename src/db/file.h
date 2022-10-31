@@ -60,7 +60,7 @@ typedef struct {
 
 Storage* init_storage(char* file_name);
 
-void add_entity(Storage* storage, Data_to_add data);
+void add_entity(Storage* storage, Data_to_add* data);
 
 void expand_storage(Storage* storage);
 

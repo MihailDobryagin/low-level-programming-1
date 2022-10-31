@@ -15,7 +15,9 @@ Storage* init_storage(char* file_name) {
 		printf("Metadata was not found");
 		
 		Metadata metadata = {
-			.blocks_number = 0,
+			.blocks_size = 0,
+			.blocks_capacity = 0,
+			.data_size = 0,
 			.headers_offset = sizeof(Metadata),
 			.data_offset = 0
 		};
@@ -35,12 +37,12 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	FILE* file = storage->file;
 	Metadata* metadata = &storage->metadata;
 	
-	assert (metadata->blocks_size < metadata->capacity);
+	assert (metadata->blocks_size < metadata->blocks_capacity);
 	
 	uint32_t header_offset = metadata->headers_offset + metadata->blocks_size * sizeof(Header_block);
 	uint32_t data_offset = metadata->data_offset + metadata->data_size;
 	
-	Entity_type data_type = data->entity_type;
+	Entity_type data_type = data->type;
 }
 
 void expand_storage(Storage* storage) {
@@ -61,16 +63,22 @@ void close_storage(Storage* storage) {
 	free(storage);
 }
 
-Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, dataExtended_tag* extended_tag) {
+Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag) {
 	Tag* tag = (Tag*) tag;
 	
 	uint32_t type_size = sizeof(Tag_type);
 	uint32_t name_size = strlen(tag->name);
-	uint32_t properties_size = tag->properties_size
+	uint32_t properties_size = tag->properties_size;
 	uint32_t property_types_size = sizeof(Type) * properties_size;
 	uint32_t property_names_size = 0;
 	
-	uint8_t* data_buff = (uint8_t*)malloc(result_size);
+	for(uint32_t i = 0; i < properties_size; i++) {
+		property_names_size += strlen(tag->property_names[i]);
+	}
+	
+	uint32_t data_size = type_size + name_size + properties_size + property_types_size + property_names_size;
+	
+	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	
 	// Write _type
 	uint8_t* cur_buff_addr = data_buff;
@@ -86,14 +94,18 @@ Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset,
 	
 	// Write _property_types + _property_names
 	cur_buff_addr += sizeof(uint32_t);
+	property_names_size = 0;
 	uint32_t property_names_offset = sizeof(Type) * properties_size;
+	for(uint32_t i = 0; i < properties_size; i++) {
+		*(cur_buff_addr + sizeof(Type) * i) = tag->property_types[i];
+		property_names_size += strlen(tag->property_names[i]);
+	}
 	
 	for(uint32_t i = 0; i < properties_size; i++) {
-		*(curr_buff_addr + sizeof(Type) * i) = tag->property_types[i];
 		if(i + 1 == properties_size) {
 			uint32_t name_len = strlen(tag->property_names[i]);
 			for(uint32_t charIdx = 0; charIdx < name_len; charIdx++) {
-				*(cur_buff_addr + property_names_offset + property_names_size + charIdx) = property_names[charIdx];
+				*(cur_buff_addr + property_names_offset + property_names_size + charIdx) = tag->property_names[charIdx];
 			}
 		}
 		else {
@@ -102,10 +114,9 @@ Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset,
 		property_names_size += strlen(tag->property_names[i]);
 	}
 	
-	// Calc data_size and store in file
-	uint32_t data_size = type_size + name_size + properties_size + property_types_size + property_names_size;
+	// Store
 	
-	Header_block header = struct {Entity_type.TAG_ENTITY, Block_status.WORKING, data_offset, data_size};
+	Header_block header = {TAG_ENTITY, WORKING, data_offset, data_size};
 	
 	fseek(file, header_offset, SEEK_SET);
 	fwrite(&header, sizeof(Header_block), 1, file);
