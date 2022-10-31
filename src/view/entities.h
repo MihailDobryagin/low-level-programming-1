@@ -4,21 +4,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum Type {
+typedef enum {
 	BYTE,
 	STRING,
 	NUMBER, // int32
 	BOOLEAN,
 	CHARACTER
-};
+} Type;
 
-enum Edge_type {
+typedef enum {
 	BIDIRECTIONAL,
 	UNIDIRECTIONAL
-};
+} Edge_type;
 
-struct Field {
-	enum Type type;
+typedef struct {
+	Type type;
 	union {
 		int8_t byte;
 		char* string;
@@ -26,36 +26,36 @@ struct Field {
 		bool boolean;
 		char character;
 	};
-};
+} Field;
 
-struct Property {
+typedef struct {
 	char* name;
-	struct Field field;
-};
+	Field field;
+} Property;
 
-enum Tag_type {
+typedef enum {
 	NODE_TAG_TYPE,
 	EDGE_TAG_TYPE
-};
+} Tag_type;
 
-struct Tag {
-	enum Tag_type type;
+typedef struct {
+	Tag_type type;
 	char* name; // id
     char** property_names;
-};
+} Tag;
 
-struct Node {
+typedef struct {
 	char* tag;
-	struct Field id;
-	struct Property* properties;
-};
+	Field id;
+	Property* properties;
+} Node;
 
-struct Edge {
+typedef struct {
 	char* tag;
-	struct Field node1_id;
-	struct Field node2_id;
-	struct Property* properties;
-};
+	Field node1_id;
+	Field node2_id;
+	Property* properties;
+} Edge;
 
 
 #endif // !entities_h

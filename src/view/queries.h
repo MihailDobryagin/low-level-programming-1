@@ -3,77 +3,77 @@
 
 #include "entities.h"
 
-enum Node_selection_mode {
+typedef enum {
 	IDS,
 	FILTER
 	BY_RELATION,
-};
+} Node_selection_mode;
 
-struct Create_tag {
-	struct Tag tag;
-};
+typedef struct {
+	Tag tag;
+} Create_tag;
 
-struct Delete_tag {
+typedef struct {
 	char* tag_name;
-};
+} Delete_tag;
 
-struct Insert_node {
-	struct Node node;
-};
+typedef struct {
+	Node node;
+} Insert_node;
 
-struct Get_nodes {
-	enum Node_selection_mode selection_mode;
-	union {
-		struct Field* ids;
-		bool (*predicate)(struct Node);
-		struct {
-			boolean (*related_node_predicate)(struct Node);
-			char* edge_tag;
-		} relation;
-	};
-};
-
-struct Delete_nodes {
-	enum Node_selection_mode selection_mode;
+typedef struct {
+	Node_selection_mode selection_mode;
 	union {
 		Field* ids;
 		bool (*predicate)(struct Node);
 		struct {
-			boolean (*related_node_predicate)(struct Node);
+			boolean (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};
-};
+} Get_nodes;
 
-struct Update_nodes {
-	enum Node_selection_mode selection_mode;
+typedef struct {
+	Node_selection_mode selection_mode;
 	union {
 		Field* ids;
-		bool (*predicate)(struct Node);
+		bool (*predicate)(Node);
 		struct {
-			boolean (*related_node_predicate)(struct Node);
+			boolean (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};
-	struct Property* new_properties;
-};
+} Delete_nodes;
 
-struct Insert_edge {
-	struct Edge edge;
-};
+typedef struct {
+	Node_selection_mode selection_mode;
+	union {
+		Field* ids;
+		bool (*predicate)(Node);
+		struct {
+			boolean (*related_node_predicate)(Node);
+			char* edge_tag;
+		} relation;
+	};
+	Property* new_properties;
+} Update_nodes;
 
-struct Get_edges {
-	bool (*predicate)(struct Edge);
-};
+typedef struct {
+	Edge edge;
+} Insert_edge;
 
-struct Delete_edges {
-	bool (*predicate)(struct Edge);
-};
+typedef struct {
+	bool (*predicate)(Edge);
+} Get_edges;
+
+typedef struct {
+	bool (*predicate)(Edge);
+} Delete_edges;
 
 
-struct Update_edges {
-	bool (*predicate)(struct Edge);
-	struct Property* new_properties;
-};
+typedef struct {
+	bool (*predicate)(Edge);
+	Property* new_properties;
+} Update_edges;
 
 #endif // !queries_h

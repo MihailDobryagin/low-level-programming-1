@@ -37,6 +37,8 @@ Header_block allocate_block(Storage* storage, Header_block header) {
 	
 	Header_block* current_header = (Header_block*)malloc(sizeof(Header_block));
 	
+	fseek(file, headers_offset, SEEK_SET);
+	
 	for(uint32_t i = 0; i < blocks_number; i++) {
 		fread(current_header, sizeof(Header_block), 1, file);
 		
