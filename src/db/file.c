@@ -184,6 +184,55 @@ Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset
 	fwrite(&data_buff, sizeof(uint8_t), data_size, file);
 }
 
+Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_edge* extended_edge) {
+	uint32_t tag_id_size = sizeof(uint32_t);
+	uint32_t id_size = calc_field_size(extended_edge->id);
+	uint32_t node_id_size = calc_field_size(extended_edge->node1_id); // *2 in result calculating
+	uint32_t properties_size_size = sizeof(uint32_t);
+	uint32_t properties_result_size = 0;
+	
+	for(uint32_t i = 0; i < extended_edge->properties_size; i++) {
+		properties_result_size += calc_property_size(extended_edge->properties[i]);
+	}
+	
+	uint32_t data_size = tag_id_size + id_size + node_id_size * 2 + properties_size_size + properties_result_size;
+	uint8_t* data_buff = (uint8_t*)malloc(data_size);
+	uint8_t* cur_buff_addr = data_buff;
+	
+	// Write _tag_id
+	*(cur_buff_addr) = extended_edge->tag_id;
+	cur_buff_addr += tag_id_size;
+	
+	// Write _id
+	put_field(cur_buff_addr, extended_edge->id);
+	cur_buff_addr += id_size;
+	
+	// Write _node_ids
+	put_field(cur_buff_addr, extended_edge->node1_id);
+	cur_buff_addr += node_id_size;
+	put_field(cur_buff_addr, extended_edge->node2_id);
+	cur_buff_addr += node_id_size;
+	
+	// Write _properties_size
+	*(cur_buff_addr) = extended_edge->properties_size;
+	cur_buff_addr += properties_size_size;
+	
+	// Write _properties
+	for(uint32_t i = 0; i < extended_edge->properties_size; i++) {
+		put_property(cur_buff_addr, extended_edge->properties[i]);
+		cur_buff_addr += calc_property_size(extended_edge->properties[i]);
+	}
+	
+	// Store
+	Header_block header = {NODE_ENTITY, WORKING, data_offset, data_size};
+	
+	fseek(file, header_offset, SEEK_SET);
+	fwrite(&header, sizeof(Header_block), 1, file);
+	
+	fseek(file, data_offset, SEEK_SET);
+	fwrite(&data_buff, sizeof(uint8_t), data_size, file);
+}
+
 uint32_t calc_field_size(Field field) {
 	switch(field.type) {
 		case BYTE: return 1;
