@@ -16,7 +16,7 @@ typedef enum {
 	BIDIRECTIONAL,
 	UNIDIRECTIONAL
 } Edge_type;
-
+	
 typedef struct {
 	Type type;
 	union {

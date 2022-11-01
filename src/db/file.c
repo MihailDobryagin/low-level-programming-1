@@ -104,16 +104,14 @@ void close_storage(Storage* storage) {
 	free(storage);
 }
 
-Entity* create_entity(uint8_t* data);
+Extended_node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 
-Entity* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
+void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
 	FILE* file = storage->file;
 	Metadata metadata = storage->metadata;
 	
 	uint32_t current_size = 0;
 	Header_block* headers = (Header_block*)malloc(sizeof(Header_block) * number_of_blocks);
-	
-	Entity* entities = (Entity*)
 	
 	if(mode == ALL) {
 		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);
@@ -126,36 +124,35 @@ Entity* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint
 		uint32_t matched_data_size = 0;
 		
 		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
-			Header_block header = header_buff[i];
+			Header_block header = headers_buff[i];
 			if(header.status != WORKING || header.type != type) continue;
 			if(passed_blocks++ != start_index) continue;
 			
-			all_matched_data_size += header.data_size;
+			matched_data_size += header.data_size;
 			matched_blocks[matched_blocks_number] = i;
-			matched_blocks_sizes[matched_blocks_number] = header.data_size);
+			matched_blocks_sizes[matched_blocks_number] = header.data_size;
 			matched_blocks_number++;
 		}
 		
 		assert(matched_blocks_number == number_of_blocks); // TODO
 		
-		uint8_t* data_buff = (uint8_t*)malloc(all_matched_data_size);
+		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size);
 		uint8_t* cur_data_buff_addr = data_buff;
 		
 		for(uint32_t i = 0; i < number_of_blocks; i++) {
-			Header_block header = header_buff[matched_blocks[i]];
-			fseek(file, header.data_offset, SET_SEEK);
+			Header_block header = headers_buff[matched_blocks[i]];
+			fseek(file, header.data_offset, SEEK_SET);
 			fread(cur_data_buff_addr, header.data_size, 1, file);
 			cur_data_buff_addr += header.data_size;
 		}
 		
-		create_entities(matched_blocks_sizes, data_buff);
-	}
-	
-	fread(headers, sizeof(Header_block), storage->metadata.blocks_size, storage->file);
-	
-	for(uint32_t i = 0; i < blocks_size; i++) {
+		switch(type) {
+			case NODE_ENTITY: return create_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
+		}
 		
 	}
+	
+	
 }
 
 uint32_t calc_field_size(Field field);
@@ -339,11 +336,7 @@ void put_field(uint8_t* buff, Field field) {
 	*buff = field.type;
 	uint8_t* val_addr = buff + sizeof(Type);
 	switch(field.type) {
-		case STRING:
-			for(uint32_t offset = strlen(field.string) - 1; offset - 1; offset >= 0) {
-				*(buff + sizeof(Type) + offset) = field.string[offset];
-			}
-			break;
+		case STRING: strcpy(val_addr, field.string); break;
 		case BYTE: *val_addr = field.byte; break;
 		case NUMBER: *val_addr = field.number; break;
 		case BOOLEAN: *val_addr = (uint8_t) field.boolean; break;
@@ -357,7 +350,82 @@ void put_property(uint8_t* buff, Property prop) {
 	put_field(buff + strlen(prop.name), prop.field);
 }
 
-// TODO
-Entity* create_entities(uint32_t* sizes, uint8_t* data) {
-	// Entity* entity = (Entity*)malloc(sizeof(Entity));
+Field scan_field(uint8_t** stream) {
+	uint8_t* cur_addr = *stream;
+	Type type = *(Type*)cur_addr;
+	*stream += sizeof(Type);
+	
+	union {
+		int8_t byte;
+		char* string;
+		int32_t number;
+		bool boolean;
+		char character;
+	} value;
+	
+	uint32_t string_len;
+	
+	switch(type) {
+		case BYTE: 
+			value.byte = *(uint8_t*)stream; 
+			*stream += sizeof(int8_t); 
+			return (Field){type, .byte = value.byte};
+		case CHARACTER: 
+			value.character = *(char*)stream; 
+			*stream += sizeof(char); 
+			return (Field){type, .character = value.character};;
+		case BOOLEAN: 
+			value.boolean = *(uint8_t*)stream != 0;
+			*stream += sizeof(uint8_t); 
+			return (Field){type, .boolean = value.boolean};
+		case NUMBER: 
+			value.number = *(int32_t*)stream; 
+			*stream += sizeof(int32_t); 
+			return (Field){type, .number = value.number};
+		case STRING: 
+			string_len = strlen((char*)stream);
+			value.string = (char*)malloc(string_len + 1);
+			strcpy(value.string, *stream);
+			value.string[string_len] = '\0';
+			*stream += string_len + 1;
+			return (Field){type, .string = value.string};
+		default: assert(0);
+	}
+}
+
+Property scan_property(uint8_t* stream) {
+	uint32_t name_len = strlen(((Property*)stream)->name);
+	char* name = (char*)malloc(name_len + 1);
+	strcpy(name, ((Property*)stream)->name);
+	*stream += name_len + 1;
+	Field field = scan_field(&stream);
+	return (Property){name, field};
+}
+
+Extended_node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+	Extended_node* nodes = (Extended_node*)malloc(sizeof(Extended_node) * blocks_number);
+	
+	Extended_node* cur_node_addr = nodes;
+	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Extended_node)) {
+		uint8_t* param_addr = (uint8_t*)cur_node_addr;
+		
+		// Fill tag_id
+		cur_node_addr->tag_id = *((uint32_t*)param_addr);
+		param_addr += sizeof(uint32_t);
+		
+		// Fill id
+		cur_node_addr->id = scan_field(&data);
+		
+		// Fill properties_size
+		cur_node_addr->properties_size = *((uint32_t*)param_addr);
+		param_addr += sizeof(uint32_t);
+		
+		// Fill properties
+		cur_node_addr->properties = (Property*)malloc(sizeof(Property) * cur_node_addr->properties_size);
+		for(uint32_t prop_idx = 0; prop_idx < cur_node_addr->properties_size; prop_idx++) {
+			cur_node_addr->properties[prop_idx] = scan_property(data);
+		}
+	}
+	
+	return nodes;
 }
