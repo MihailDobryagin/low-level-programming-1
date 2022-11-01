@@ -9,7 +9,6 @@ void check_init_storage() {
 	fwrite(&metadata, sizeof(Metadata), 1, file);
 	fclose(file);
 
-
 	Storage* storage = init_storage("test_file");
 	
 	assert(storage->metadata.blocks_size == 1);
@@ -17,6 +16,23 @@ void check_init_storage() {
 	assert(storage->metadata.data_size == 3);
 	assert(storage->metadata.headers_offset == 4);
 	assert(storage->metadata.data_offset == 5);
+	
+	close_storage(storage);
+}
+
+void check_init_storage_when_file_is_empty() {
+	FILE* file = fopen("test_file", "w");
+	fclose(file);
+
+	Storage* storage = init_storage("test_file");
+	
+	assert(storage->metadata.blocks_size == 0);
+	assert(storage->metadata.blocks_capacity == 10);
+	assert(storage->metadata.data_size == 0);
+	assert(storage->metadata.headers_offset == sizeof(Metadata));
+	assert(storage->metadata.data_offset == sizeof(Metadata));
+	
+	close_storage(storage);
 }
 
 // void allocate_block() {
@@ -31,4 +47,5 @@ void check_init_storage() {
 
 void main() {
 	check_init_storage();
+	check_init_storage_when_file_is_empty();
 }

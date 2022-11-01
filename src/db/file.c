@@ -10,11 +10,11 @@ Storage* init_storage(char* file_name) {
 	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata));
 	size_t readen_for_metadata = fread(metadata_buff, sizeof(Metadata), 1, file);
 	
-	Storage* storage = (Storage*)malloc(sizeof(Storage*));
+	Storage* storage = (Storage*)malloc(sizeof(Storage));
 	storage->file = file;
 	
 	if(readen_for_metadata == 0) {
-		printf("Metadata was not found");
+		printf("Metadata was not found\n");
 		
 		Metadata metadata = {
 			.blocks_size = 0,
@@ -61,8 +61,6 @@ void expand_storage(Storage* storage) {
 	
 	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
 	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
-	
-	// data_to_header_mappings
 	
 	uint32_t target_last_header_addr = metadata->headers_offset + metadata->blocks_size * new_capacity; // excluding
 	
