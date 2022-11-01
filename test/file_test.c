@@ -4,6 +4,15 @@
 #include <inttypes.h>
 #include <string.h>
 
+void print_header(Header_block header) {
+	printf("----------------------\n");
+	printf("type         | %5"PRIu32" |\n", header.type);
+	printf("status       | %5"PRIu32" |\n", header.status);
+	printf("data_offset  | %5"PRIu32" |\n", header.data_offset);
+	printf("data_size    | %5"PRIu32" |\n", header.data_size);
+	printf("----------------------\n");
+}
+
 bool header_block_equals(Header_block b1, Header_block b2) {
 	return b1.type == b2.type
 		&& b1.status == b2.status
@@ -138,13 +147,15 @@ void check_add_entity() {
 	
 	uint32_t capacity = 10;
 	
-	uint32_t expected_data_size = sizeof(Tag_type) + 5 + sizeof(uint32_t) + sizeof(Type)*1 + 10 + sizeof(Entity_type);
+	uint32_t expected_data_size = sizeof(Tag_type) + 5 + sizeof(uint32_t) + sizeof(Type)*1 + 10;
 	
 	Header_block expected_header = {TAG_ENTITY, WORKING, sizeof(Metadata) + sizeof(Header_block) * capacity, expected_data_size};
 	fseek(file, sizeof(Metadata), SEEK_SET);
 	Header_block actual_header;
 	fread(&actual_header, sizeof(Header_block), 1, file);
 	
+	print_header(actual_header);
+	print_header(expected_header);
 	assert(header_block_equals(actual_header, expected_header));
 	
 	uint8_t* actual_data = (uint8_t*)malloc(expected_header.data_size);
