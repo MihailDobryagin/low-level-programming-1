@@ -18,10 +18,10 @@ Storage* init_storage(char* file_name) {
 		
 		Metadata metadata = {
 			.blocks_size = 0,
-			.blocks_capacity = 0,
+			.blocks_capacity = 10,
 			.data_size = 0,
 			.headers_offset = sizeof(Metadata),
-			.data_offset = 0
+			.data_offset = sizeof(Metadata)
 		};
 		
 		metadata_buff = &metadata;
@@ -36,6 +36,8 @@ Storage* init_storage(char* file_name) {
 }
 
 Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag);
+Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_node* extended_node);
+Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_edge* extended_edge);
 
 void add_entity(Storage* storage, Data_to_add* data) {
 	FILE* file = storage->file;
@@ -46,20 +48,51 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	uint32_t header_offset = metadata->headers_offset + metadata->blocks_size * sizeof(Header_block);
 	uint32_t data_offset = metadata->data_offset + metadata->data_size;
 	
-	Entity_type data_type = data->type;
-	
-	if(data_type == TAG_ENTITY) {
-		store_tag(file, header_offset, data_offset, (Extended_tag*)data);
+	switch(data->type) {
+		case TAG_ENTITY: store_tag(file, header_offset, data_offset, &data->tag); break;
+		case NODE_ENTITY: store_node(file, header_offset, data_offset, &data->node); break;
+		case EDGE_ENTITY: store_edge(file, header_offset, data_offset, &data->edge); break;
+		default: assert(0);
 	}
 }
 
 void expand_storage(Storage* storage) {
-	Metadata metadata = storage->metadata;
+	Metadata* metadata = &(storage->metadata);
 	
-	uint32_t capacity_diff = metadata.blocks_capacity / 2;
-	uint32_t new_capacity = metadata.blocks_capacity + capacity_diff;
+	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
+	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
 	
+	// data_to_header_mappings
 	
+	uint32_t target_last_header_addr = metadata->headers_offset + metadata->blocks_size * new_capacity; // excluding
+	
+	uint32_t count_of_matching_blocks = 0;
+	uint32_t count_of_matching_blocks_cap = 5; // capacity
+	uint32_t* blocks_to_move = (uint32_t*)malloc(sizeof(uint32_t) * count_of_matching_blocks_cap); // indexes of headers
+	
+	fseek(storage->file, metadata->headers_offset, SEEK_SET);
+	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));
+	for(uint32_t i = 0; i < metadata->blocks_size; i++) {
+		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		if(header_buff->data_offset < target_last_header_addr) {
+			if(count_of_matching_blocks == count_of_matching_blocks_cap) {
+				count_of_matching_blocks_cap += count_of_matching_blocks_cap / 2; 
+				blocks_to_move = (uint32_t*)realloc(blocks_to_move, sizeof(uint32_t) * count_of_matching_blocks_cap);
+			}
+			blocks_to_move[count_of_matching_blocks++] = i;
+		}
+	}
+	
+	for(int i = 0; i < count_of_matching_blocks; i++) {
+		fseek(storage->file, metadata->headers_offset, SEEK_SET);
+		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
+		fseek(storage->file, header_buff->data_offset, SEEK_SET);
+		fread(data, header_buff->data_size, 1, storage->file);
+		fseek(storage->file, metadata->data_offset + metadata->data_size, SEEK_SET);
+		fwrite(data, header_buff->data_size, 1, storage->file);
+		metadata->data_size += header_buff->data_size;
+	}
 }
 
 void collapse_storage(Storage* storage) {
