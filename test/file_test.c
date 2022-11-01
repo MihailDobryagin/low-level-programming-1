@@ -20,17 +20,13 @@ bool tag_equals(Tag t1, Tag t2) {
 	
 	uint32_t properties_size = t1.properties_size;
 	
-	for(int i = 0; i < property_size && result; i++) {
-		result &&= 
-			t1.property_types[i] == t2.property_types[i]
+	for(int i = 0; i < properties_size && result; i++) {
+		result = result 
+			&& t1.property_types[i] == t2.property_types[i]
 			&& strcmp(t1.property_names[i], t2.property_names[i]) == 0;
 	}
 	
 	return result;
-}
-
-bool extended_tag_equals(Extended_tag t1, Extended_tag t2) {
-	return tag_equals((Tag)t1, (Tag)t2) && t1.id == t2.id;
 }
 
 void check_init_storage() {
@@ -78,15 +74,15 @@ void check_get_nodes() {
 		.field = (Field) {CHARACTER, '+'}
 	};
 	
-	Extended_node node = {
-		.tag_id = 123,
+	Node node = {
+		.tag = "tag_name",
 		.id = {NUMBER, .number = -123456},
 		.properties_size = 2,
 		.properties = properties
 	};
 	
-	// Write tag_id
-	fwrite(&node.tag_id, sizeof(uint32_t), 1, file);
+	// Write tag_name
+	fwrite(&node.tag, strlen(node.tag) + 1, 1, file);
 	
 	// Write id
 	fwrite(&node.id.type, sizeof(Type), 1, file);
@@ -126,17 +122,11 @@ void check_add_entity() {
 	Storage* storage = init_storage("test_file");
 	Type property_type = BYTE;
 	char* property_name = "prop_name";
-	
-	Tag tag = {NODE_TAG_TYPE, "tag1", 1, &property_type, &property_name};
-	Extended_tag extended_tag = {
-		.tag = tag, 
-		.id = 1
-	};
+
 	Data_to_add data_to_add = {
-		.tag = tag,
+		.tag = (Tag){NODE_TAG_TYPE, "tag1", 1, &property_type, &property_name},
 		.type = TAG_ENTITY
 	};
-	
 	
 	add_entity(storage, &data_to_add);
 	close_storage(storage);
@@ -144,7 +134,7 @@ void check_add_entity() {
 	file = fopen("test_file", "rb");
 	Metadata metadata;
 	fread(&metadata, sizeof(Metadata), 1, file);
-	printf("blocks_num -> %ld\n", metadata.blocks_size);
+	// printf("blocks_num -> %ld\n", metadata.blocks_size);
 	
 	uint32_t capacity = 10;
 	
@@ -157,8 +147,6 @@ void check_add_entity() {
 	
 	assert(header_block_equals(actual_header, expected_header));
 	
-	Extended_tag tag;
-
 	uint8_t* actual_data = (uint8_t*)malloc(expected_header.data_size);
 	fseek(file, expected_header.data_offset, SEEK_SET);
 	fread(actual_data, expected_header.data_size, 1, file);
