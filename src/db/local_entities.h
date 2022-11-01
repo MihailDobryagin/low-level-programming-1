@@ -5,17 +5,24 @@
 #include "../view/entities.h"
 
 typedef struct {
-	Node node;
-	int32_t local_id;
+	int32_t tag_id;
+	Field id;
+	uint32_t properties_size;
+	Property* properties;
 } Extended_node;
 
 typedef struct {
-	Edge edge;
-	int32_t local_id;
+	int32_t tag_id;
+	Field id;
+	Field node1_id;
+	Field node2_id;
+	uint32_t properties_size;
+	Property* properties;
 } Extended_edge;
 
 typedef struct {
 	Tag tag;
+	int32_t id;
 } Extended_tag;
 
 

@@ -55,6 +55,7 @@ typedef struct {
 
 typedef struct {
 	char* tag;
+	Field id;
 	Field node1_id;
 	Field node2_id;
 	uint32_t properties_size;
