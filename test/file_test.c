@@ -38,7 +38,7 @@ void check_init_storage_when_file_is_empty() {
 	assert(storage->metadata.blocks_capacity == 10);
 	assert(storage->metadata.data_size == 0);
 	assert(storage->metadata.headers_offset == sizeof(Metadata));
-	assert(storage->metadata.data_offset == sizeof(Metadata));
+	assert(storage->metadata.data_offset == sizeof(Metadata) + sizeof(Header_block) * storage->metadata.blocks_capacity);
 	
 	close_storage(storage);
 }
@@ -115,21 +115,25 @@ void check_add_entity() {
 		.type = TAG_ENTITY
 	};
 	
-	// 1 + 5 + 1 + 8 + 8
 	
 	add_entity(storage, &data_to_add);
 	close_storage(storage);
 	
 	file = fopen("test_file", "rb");
-	uint32_t expected_data_size = sizeof(Tag_type) + sizeof(Block_status) + 5 + sizeof(uint32_t) + sizeof(Type) + 10;
+	Metadata metadata;
+	fread(&metadata, sizeof(Metadata), 1, file);
+	printf("blocks_num -> %ld\n", metadata.blocks_size);
 	
-	Header_block expected_header = {TAG_ENTITY, WORKING, sizeof(Metadata) + sizeof(Header_block), expected_data_size};
+	uint32_t capacity = 10;
+	
+	uint32_t expected_data_size = sizeof(Tag_type) + 5 + sizeof(uint32_t) + sizeof(Type)*1 + 10 + sizeof(Entity_type);
+	
+	Header_block expected_header = {TAG_ENTITY, WORKING, sizeof(Metadata) + sizeof(Header_block) * capacity, expected_data_size};
 	fseek(file, sizeof(Metadata), SEEK_SET);
-	Header_block* actual_header = (Header_block*)malloc(sizeof(Header_block));
-	fread(actual_header, sizeof(Header_block), 1, file);
+	Header_block actual_header;
+	fread(&actual_header, sizeof(Header_block), 1, file);
 	
-	// printf("%ld %ld\n", actual_header->data_offset, expected_header.data_offset);
-	assert(header_block_equals(*actual_header, expected_header));
+	assert(header_block_equals(actual_header, expected_header));
 }
 
 void main() {
