@@ -11,6 +11,28 @@ bool header_block_equals(Header_block b1, Header_block b2) {
 		&& b1.data_size == b2.data_size;
 }
 
+bool tag_equals(Tag t1, Tag t2) {
+	bool result = 
+		t1.type == t2.type
+		&& strcmp(t1.name, t2.name) == 0
+		&& t1.properties_size == t2.properties_size;
+	if(result == false) return false;
+	
+	uint32_t properties_size = t1.properties_size;
+	
+	for(int i = 0; i < property_size && result; i++) {
+		result &&= 
+			t1.property_types[i] == t2.property_types[i]
+			&& strcmp(t1.property_names[i], t2.property_names[i]) == 0;
+	}
+	
+	return result;
+}
+
+bool extended_tag_equals(Extended_tag t1, Extended_tag t2) {
+	return tag_equals((Tag)t1, (Tag)t2) && t1.id == t2.id;
+}
+
 void check_init_storage() {
 	FILE* file = fopen("test_file", "wb+");
 	Metadata metadata = {1, 2, 3, 4, 5};
@@ -134,6 +156,16 @@ void check_add_entity() {
 	fread(&actual_header, sizeof(Header_block), 1, file);
 	
 	assert(header_block_equals(actual_header, expected_header));
+	
+	Extended_tag tag;
+
+	uint8_t* actual_data = (uint8_t*)malloc(expected_header.data_size);
+	fseek(file, expected_header.data_offset, SEEK_SET);
+	fread(actual_data, expected_header.data_size, 1, file);
+	
+	uint8_t* expected_data = (uint8_t*)malloc(expected_header.data_size);
+	
+	// TODO May be we dont need to check it. Only result operations?
 }
 
 void main() {
