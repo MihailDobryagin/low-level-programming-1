@@ -1,7 +1,7 @@
 #ifndef file_h
 #define file_h
 
-#include "local_entities.h"
+#include "entities.h"
 
 typedef struct {
 	uint32_t blocks_size; // size of working+draft
@@ -42,17 +42,17 @@ typedef struct {
 
 typedef struct {
 	union {
-		Extended_tag tag;
-		Extended_node node;
-		Extended_edge edge;
+		Tag tag;
+		Node node;
+		Edge edge;
 	};
 } Entity;
 
 typedef struct {
 	union {
-		Extended_tag tag;
-		Extended_node node;
-		Extended_edge edge;
+		Tag tag;
+		Node node;
+		Edge edge;
 	};
 	Entity_type type;
 } Data_to_add;

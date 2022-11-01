@@ -22,7 +22,7 @@ typedef struct {
 
 typedef struct {
 	Tag tag;
-	int32_t id;
+	int32_t auto_id;
 } Extended_tag;
 
 

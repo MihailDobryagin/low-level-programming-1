@@ -42,9 +42,9 @@ void update_metadata(Storage* storage) {
 	fwrite(&(storage->metadata), sizeof(Metadata), 1, storage->file);
 }
 
-Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag);
-Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_node* extended_node);
-Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_edge* extended_edge);
+Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* extended_tag);
+Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* extended_node);
+Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* extended_edge);
 
 void add_entity(Storage* storage, Data_to_add* data) {
 	FILE* file = storage->file;
@@ -111,7 +111,7 @@ void close_storage(Storage* storage) {
 	free(storage);
 }
 
-Extended_node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+Node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 
 void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
 	FILE* file = storage->file;
@@ -167,7 +167,7 @@ uint32_t calc_property_size(Property field);
 void put_field(uint8_t* buff, Field field);
 void put_property(uint8_t* buff, Property prop);
 
-Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag) {
+Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* extended_tag) {
 	FILE* file = storage->file;
 	Tag* tag = (Tag*) extended_tag;
 	
@@ -233,7 +233,7 @@ Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_o
 	storage->metadata.data_size += data_size;
 }
 
-Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_node* extended_node) {
+Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* extended_node) {
 	uint32_t tag_id_size = sizeof(uint32_t);
 	uint32_t id_size = calc_field_size(extended_node->id);
 	uint32_t properties_size_size = sizeof(uint32_t);
@@ -275,7 +275,7 @@ Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset
 	fwrite(&data_buff, sizeof(uint8_t), data_size, file);
 }
 
-Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_edge* extended_edge) {
+Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* extended_edge) {
 	uint32_t tag_id_size = sizeof(uint32_t);
 	uint32_t id_size = calc_field_size(extended_edge->id);
 	uint32_t node_id_size = calc_field_size(extended_edge->node1_id); // *2 in result calculating
@@ -409,11 +409,11 @@ Property scan_property(uint8_t* stream) {
 	return (Property){name, field};
 }
 
-Extended_node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
-	Extended_node* nodes = (Extended_node*)malloc(sizeof(Extended_node) * blocks_number);
+Node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
 	
-	Extended_node* cur_node_addr = nodes;
-	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Extended_node)) {
+	Node* cur_node_addr = nodes;
+	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Node)) {
 		uint8_t* param_addr = (uint8_t*)cur_node_addr;
 		
 		// Fill tag_id
