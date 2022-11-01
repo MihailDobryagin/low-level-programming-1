@@ -9,10 +9,13 @@ uint32_t _calc_field_size(Field field);
 uint32_t _calc_property_size(Property field);
 void _put_field(uint8_t* buff, Field field);
 void _put_property(uint8_t* buff, Property prop);
+Field _scan_field(uint8_t** stream);
+Property _scan_property(uint8_t** stream);
 void _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* tag);
 void _store_node(Storage* storage, uint32_t header_offset, uint32_t data_offset, Node* node);
 void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset, Edge* edge);
 Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+Edge* _create_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 void _update_metadata(Storage* storage);
 void _expand_storage(Storage* storage);
 void _collapse_storage(Storage* storage);
@@ -111,6 +114,7 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 		
 		switch(type) {
 			case NODE_ENTITY: return _create_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
+			case EDGE_ENTITY: return _create_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
 		}
 		
 	}	
@@ -267,7 +271,8 @@ void _store_node(Storage* storage, uint32_t header_offset, uint32_t data_offset,
 void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset, Edge* edge) {
 	uint32_t tag_name_size = strlen(edge->tag);
 	uint32_t id_size = _calc_field_size(edge->id);
-	uint32_t node_id_size = _calc_field_size(edge->node1_id); // *2 in result calculating
+	uint32_t node1_id_size = _calc_field_size(edge->node1_id);
+	uint32_t node2_id_size = _calc_field_size(edge->node2_id);
 	uint32_t properties_size_size = sizeof(uint32_t);
 	uint32_t properties_result_size = 0;
 	
@@ -275,7 +280,7 @@ void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset,
 		properties_result_size += _calc_property_size(edge->properties[i]);
 	}
 	
-	uint32_t data_size = (tag_name_size + 1) + id_size + node_id_size * 2 + properties_size_size + properties_result_size;
+	uint32_t data_size = (tag_name_size + 1) + id_size + node1_id_size + node2_id_size  + properties_size_size + properties_result_size;
 	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
 	uint8_t* cur_buff_addr = data_buff;
 	
@@ -289,9 +294,9 @@ void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset,
 	
 	// Write _node_ids
 	_put_field(cur_buff_addr, edge->node1_id);
-	cur_buff_addr += node_id_size;
+	cur_buff_addr += node1_id_size;
 	_put_field(cur_buff_addr, edge->node2_id);
-	cur_buff_addr += node_id_size;
+	cur_buff_addr += node2_id_size;
 	
 	// Write _properties_size
 	*(cur_buff_addr) = edge->properties_size;
@@ -391,13 +396,33 @@ Field _scan_field(uint8_t** stream) {
 	}
 }
 
-Property _scan_property(uint8_t* stream) {
+Property _scan_property(uint8_t** stream) {
 	uint32_t name_len = strlen(((Property*)stream)->name);
 	char* name = (char*)malloc(name_len + 1);
 	strcpy(name, ((Property*)stream)->name);
 	*stream += name_len + 1;
-	Field field = _scan_field(&stream);
+	Field field = _scan_field(stream);
 	return (Property){name, field};
+}
+
+Node _create_node(uint8_t* data) {
+	uint32_t tag_name_len = strlen((char*)data);
+	char* tag_name = (char*)malloc(tag_name_len);
+	strcpy(tag_name, (char*)data);
+	data += tag_name_len;
+	
+	Field id = _scan_field(&data);
+	
+	uint32_t properties_size = *((uint32_t*)data);
+	data += sizeof(uint32_t);
+	
+	Property* properties = (Property*)malloc(sizeof(Property) * properties_size);
+	
+	for(int i = 0; i < properties_size; i++) {
+		properties[i] = _scan_property(&data);
+	}
+	
+	return (Node) {tag_name, id, properties_size, properties};
 }
 
 Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
@@ -407,25 +432,44 @@ Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Node)) {
 		uint8_t* param_addr = (uint8_t*)cur_node_addr;
 		
-		// Fill tag_name
-		uint32_t tag_name_length = strlen(param_addr);
-		cur_node_addr->tag = (char*)malloc(tag_name_length + 1);
-		strcpy(cur_node_addr->tag, (char*)param_addr);
-		param_addr += tag_name_length + 1;
-		
-		// Fill id
-		cur_node_addr->id = _scan_field(&param_addr);
-		
-		// Fill properties_size
-		cur_node_addr->properties_size = *((uint32_t*)param_addr);
-		param_addr += sizeof(uint32_t);
-		
-		// Fill properties
-		cur_node_addr->properties = (Property*)malloc(sizeof(Property) * cur_node_addr->properties_size);
-		for(uint32_t prop_idx = 0; prop_idx < cur_node_addr->properties_size; prop_idx++) {
-			cur_node_addr->properties[prop_idx] = _scan_property(param_addr);
-		}
+		nodes[i] = _create_node((uint8_t*)cur_node_addr);
 	}
 	
 	return nodes;
+}
+
+Edge _create_edge(uint8_t* data) {
+	uint32_t tag_name_len = strlen((char*)data);
+	char* tag_name = (char*)malloc(tag_name_len);
+	strcpy(tag_name, (char*)data);
+	data += tag_name_len;
+	
+	Field id = _scan_field(&data);
+	
+	Field node1_id = _scan_field(&data);
+	Field node2_id = _scan_field(&data);
+	
+	uint32_t properties_size = *((uint32_t*)data);
+	data += sizeof(uint32_t);
+	
+	Property* properties = (Property*)malloc(sizeof(Property) * properties_size);
+	
+	for(int i = 0; i < properties_size; i++) {
+		properties[i] = _scan_property(&data);
+	}
+	
+	return (Edge) {tag_name, id, node1_id, node2_id, properties_size, properties};
+}
+
+Edge* _create_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+	Edge* edges = (Edge*)malloc(sizeof(Edge) * blocks_number);
+	Edge* cur_edge_addr = edges;
+	
+	for(uint32_t i = 0; i < blocks_number; i++, cur_edge_addr += sizeof(Edge)) {
+		uint8_t* param_addr = (uint8_t*)cur_edge_addr;
+		
+		edges[i] = _create_edge((uint8_t*)cur_edge_addr);
+	}
+	
+	return edges;
 }
