@@ -18,6 +18,10 @@ typedef struct {
 } Delete_tag;
 
 typedef struct {
+	char* tag_name;
+} Get_tag;
+
+typedef struct {
 	Node node;
 } Insert_node;
 

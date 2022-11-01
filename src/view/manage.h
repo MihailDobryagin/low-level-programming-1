@@ -5,6 +5,10 @@
 #include "local_entities.h"
 #include "queries.h"
 
+void create_tag(Create_tag query);
+void delete_tag(Delete_tag query);
+Tag tag_info(Get_tag query);
+
 Node* nodes(Get_nodes query);
 Node insert_node(Insert_node query);
 void delete_node(Delete_nodes query);

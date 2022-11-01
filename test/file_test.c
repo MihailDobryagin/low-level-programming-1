@@ -115,6 +115,8 @@ void check_add_entity() {
 		.type = TAG_ENTITY
 	};
 	
+	// 1 + 5 + 1 + 8 + 8
+	
 	add_entity(storage, &data_to_add);
 	close_storage(storage);
 	
@@ -126,7 +128,7 @@ void check_add_entity() {
 	Header_block* actual_header = (Header_block*)malloc(sizeof(Header_block));
 	fread(actual_header, sizeof(Header_block), 1, file);
 	
-	printf("%ld %ld\n", actual_header->data_offset, expected_header.data_offset);
+	// printf("%ld %ld\n", actual_header->data_offset, expected_header.data_offset);
 	assert(header_block_equals(*actual_header, expected_header));
 }
 
