@@ -4,6 +4,13 @@
 #include <inttypes.h>
 #include <string.h>
 
+bool header_block_equals(Header_block b1, Header_block b2) {
+	return b1.type == b2.type
+		&& b1.status == b2.status
+		&& b1.data_offset == b2.data_offset
+		&& b1.data_size == b2.data_size;
+}
+
 void check_init_storage() {
 	FILE* file = fopen("test_file", "wb+");
 	Metadata metadata = {1, 2, 3, 4, 5};
@@ -36,7 +43,60 @@ void check_init_storage_when_file_is_empty() {
 	close_storage(storage);
 }
 
-// TODO Complete after testing get-queries
+void check_get_nodes() {
+	FILE* file = fopen("test_file", "wb+");
+	Property* properties = (Property*)malloc(sizeof(Property) * 2);
+	properties[0] = (Property){
+		.name = "name1",
+		.field = (Field) {CHARACTER, '-'}
+	};
+	
+	properties[1] = (Property){
+		.name = "name2",
+		.field = (Field) {CHARACTER, '+'}
+	};
+	
+	Extended_node node = {
+		.tag_id = 123,
+		.id = {NUMBER, .number = -123456},
+		.properties_size = 2,
+		.properties = properties
+	};
+	
+	// Write tag_id
+	fwrite(&node.tag_id, sizeof(uint32_t), 1, file);
+	
+	// Write id
+	fwrite(&node.id.type, sizeof(Type), 1, file);
+	fwrite(&node.id.number, sizeof(int32_t), 1, file);
+	
+	// Write properties
+	fwrite(properties[0].name, 5, 1, file); // 1
+	char symbol = '\0';
+	fwrite(&symbol, 1, 1, file);
+	fwrite(&properties[0].field.type, sizeof(Type), 1, file);
+	symbol = '-';
+	fwrite(&symbol, 1, 1, file);
+	
+	fwrite(properties[1].name, 5, 1, file); // 2
+	symbol = '\0';
+	fwrite(&symbol, 1, 1, file);
+	fwrite(&properties[1].field.type, sizeof(Type), 1, file);
+	symbol = '+';
+	fwrite(&symbol, 1, 1, file);
+	
+	fclose(file);
+	
+	Storage* storage = init_storage("test_file");
+	
+	// TODO
+}
+
+void check_get_entities() {
+	FILE* file = fopen("test_file", "w");
+	fclose(file);
+}
+
 void check_add_entity() {
 	FILE* file = fopen("test_file", "w");
 	fclose(file);
@@ -56,14 +116,23 @@ void check_add_entity() {
 	};
 	
 	add_entity(storage, &data_to_add);
-	
 	close_storage(storage);
 	
+	file = fopen("test_file", "rb");
+	uint32_t expected_data_size = sizeof(Tag_type) + sizeof(Block_status) + 5 + sizeof(uint32_t) + sizeof(Type) + 10;
 	
+	Header_block expected_header = {TAG_ENTITY, WORKING, sizeof(Metadata) + sizeof(Header_block), expected_data_size};
+	fseek(file, sizeof(Metadata), SEEK_SET);
+	Header_block* actual_header = (Header_block*)malloc(sizeof(Header_block));
+	fread(actual_header, sizeof(Header_block), 1, file);
+	
+	printf("%ld %ld\n", actual_header->data_offset, expected_header.data_offset);
+	assert(header_block_equals(*actual_header, expected_header));
 }
 
 void main() {
 	check_init_storage();
 	check_init_storage_when_file_is_empty();
 	check_add_entity();
+	check_get_nodes();
 }

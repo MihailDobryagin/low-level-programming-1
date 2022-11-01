@@ -37,7 +37,7 @@ Storage* init_storage(char* file_name) {
 	return storage;
 }
 
-Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag);
+Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag);
 Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_node* extended_node);
 Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_edge* extended_edge);
 
@@ -51,7 +51,7 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	uint32_t data_offset = metadata->data_offset + metadata->data_size;
 	
 	switch(data->type) {
-		case TAG_ENTITY: store_tag(file, header_offset, data_offset, &data->tag); break;
+		case TAG_ENTITY: store_tag(storage, header_offset, data_offset, &data->tag); break;
 		case NODE_ENTITY: store_node(file, header_offset, data_offset, &data->node); break;
 		case EDGE_ENTITY: store_edge(file, header_offset, data_offset, &data->edge); break;
 		default: assert(0);
@@ -160,7 +160,8 @@ uint32_t calc_property_size(Property field);
 void put_field(uint8_t* buff, Field field);
 void put_property(uint8_t* buff, Property prop);
 
-Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag) {
+Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag) {
+	FILE* file = storage->file;
 	Tag* tag = (Tag*) extended_tag;
 	
 	uint32_t id_size = sizeof(uint32_t);
@@ -174,7 +175,7 @@ Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset,
 		property_names_size += strlen(tag->property_names[i]);
 	}
 	
-	uint32_t data_size = id_size + type_size + name_size + properties_size + property_types_size + property_names_size;
+	uint32_t data_size = id_size + type_size + name_size + 1 + properties_size + property_types_size + property_names_size;
 	
 	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	uint8_t* cur_buff_addr = data_buff;
@@ -190,6 +191,8 @@ Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset,
 	// Write _name
 	strcpy(cur_buff_addr, tag->name); // We have \0 at the end
 	cur_buff_addr += name_size;
+	*cur_buff_addr = '\0';
+	cur_buff_addr++;
 	
 	// Write _properties_size
 	*(cur_buff_addr) = properties_size;
@@ -204,26 +207,25 @@ Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset,
 	}
 	
 	for(uint32_t i = 0; i < properties_size; i++) {
-		if(i + 1 == properties_size) {
-			uint32_t name_len = strlen(tag->property_names[i]);
-			for(uint32_t charIdx = 0; charIdx < name_len; charIdx++) {
-				*(cur_buff_addr + property_names_offset + property_names_size + charIdx) = (uint8_t)tag->property_names[i][charIdx];
-			}
-		}
-		else {
-			strcpy(cur_buff_addr + property_names_offset + property_names_size, tag->property_names[i]);
-		}
-		property_names_size += strlen(tag->property_names[i]);
+		uint32_t name_len = strlen(tag->property_names[i]);
+		strcpy(cur_buff_addr + property_names_offset + property_names_size, tag->property_names[i]);
+		property_names_size += name_len;
+		*cur_buff_addr = '\0';
+		cur_buff_addr++;
 	}
 	
 	// Store
 	Header_block header = {TAG_ENTITY, WORKING, data_offset, data_size};
 	
 	fseek(file, header_offset, SEEK_SET);
+	printf("\noffset : %lld\n", data_offset);
+	printf("size   : %lld\n\n", data_size);
 	fwrite(&header, sizeof(Header_block), 1, file);
 	
 	fseek(file, data_offset, SEEK_SET);
 	fwrite(&data_buff, sizeof(uint8_t), data_size, file);
+	
+	storage->metadata.data_size += data_size;
 }
 
 Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_node* extended_node) {
