@@ -115,6 +115,8 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 		switch(type) {
 			case NODE_ENTITY: return _create_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
 			case EDGE_ENTITY: return _create_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
+			default:
+				assert(0);
 		}
 		
 	}	
