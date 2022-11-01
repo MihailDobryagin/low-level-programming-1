@@ -2,7 +2,6 @@
 #define manage_h
 
 #include "entities.h"
-#include "local_entities.h"
 #include "queries.h"
 
 void create_tag(Create_tag query);
