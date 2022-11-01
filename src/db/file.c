@@ -108,7 +108,7 @@ void put_field(uint8_t* buff, Field field);
 void put_property(uint8_t* buff, Property prop);
 
 Header_block store_tag(FILE* file, uint32_t header_offset, uint32_t data_offset, Extended_tag* extended_tag) {
-	Tag* tag = (Tag*) tag;
+	Tag* tag = (Tag*) extended_tag;
 	
 	uint32_t id_size = sizeof(uint32_t);
 	uint32_t type_size = sizeof(Tag_type);
