@@ -36,6 +36,7 @@ void check_init_storage_when_file_is_empty() {
 	close_storage(storage);
 }
 
+// TODO Complete after testing get-queries
 void check_add_entity() {
 	FILE* file = fopen("test_file", "w");
 	fclose(file);

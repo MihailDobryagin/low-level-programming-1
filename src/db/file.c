@@ -1,5 +1,7 @@
 // TODO Tests
 // TODO Make different user-optimizations
+// TODO NOT TESTED
+// TODO memory NOT MANAGED
 #include "file.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -100,6 +102,60 @@ void collapse_storage(Storage* storage) {
 void close_storage(Storage* storage) {
 	fclose(storage->file);
 	free(storage);
+}
+
+Entity* create_entity(uint8_t* data);
+
+Entity* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
+	FILE* file = storage->file;
+	Metadata metadata = storage->metadata;
+	
+	uint32_t current_size = 0;
+	Header_block* headers = (Header_block*)malloc(sizeof(Header_block) * number_of_blocks);
+	
+	Entity* entities = (Entity*)
+	
+	if(mode == ALL) {
+		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);
+		fread(headers_buff, sizeof(Header_block), metadata.blocks_size, file);
+		
+		uint32_t passed_blocks = 0;
+		uint32_t matched_blocks_number = 0;
+		uint32_t* matched_blocks_sizes = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
+		uint32_t* matched_blocks = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks); // indexes
+		uint32_t matched_data_size = 0;
+		
+		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
+			Header_block header = header_buff[i];
+			if(header.status != WORKING || header.type != type) continue;
+			if(passed_blocks++ != start_index) continue;
+			
+			all_matched_data_size += header.data_size;
+			matched_blocks[matched_blocks_number] = i;
+			matched_blocks_sizes[matched_blocks_number] = header.data_size);
+			matched_blocks_number++;
+		}
+		
+		assert(matched_blocks_number == number_of_blocks); // TODO
+		
+		uint8_t* data_buff = (uint8_t*)malloc(all_matched_data_size);
+		uint8_t* cur_data_buff_addr = data_buff;
+		
+		for(uint32_t i = 0; i < number_of_blocks; i++) {
+			Header_block header = header_buff[matched_blocks[i]];
+			fseek(file, header.data_offset, SET_SEEK);
+			fread(cur_data_buff_addr, header.data_size, 1, file);
+			cur_data_buff_addr += header.data_size;
+		}
+		
+		create_entities(matched_blocks_sizes, data_buff);
+	}
+	
+	fread(headers, sizeof(Header_block), storage->metadata.blocks_size, storage->file);
+	
+	for(uint32_t i = 0; i < blocks_size; i++) {
+		
+	}
 }
 
 uint32_t calc_field_size(Field field);
@@ -299,4 +355,9 @@ void put_field(uint8_t* buff, Field field) {
 void put_property(uint8_t* buff, Property prop) {
 	strcpy(buff, prop.name);
 	put_field(buff + strlen(prop.name), prop.field);
+}
+
+// TODO
+Entity* create_entities(uint32_t* sizes, uint8_t* data) {
+	// Entity* entity = (Entity*)malloc(sizeof(Entity));
 }

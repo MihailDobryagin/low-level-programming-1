@@ -46,7 +46,7 @@ typedef struct {
 		Extended_node node;
 		Extended_edge edge;
 	};
-} Data_block;
+} Entity;
 
 typedef struct {
 	union {
@@ -57,8 +57,16 @@ typedef struct {
 	Entity_type type;
 } Data_to_add;
 
+typedef enum {
+	ALL,
+	BUFFERED,
+	ONE_BY_ONE
+} Getting_mode;
+
 
 Storage* init_storage(char* file_name);
+
+Entity* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t number_of_blocks); // Only WORKING
 
 void add_entity(Storage* storage, Data_to_add* data);
 
