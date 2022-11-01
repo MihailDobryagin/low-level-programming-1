@@ -7,6 +7,18 @@
 #include <assert.h>
 #include <string.h>
 
+uint32_t _calc_field_size(Field field);
+uint32_t _calc_property_size(Property field);
+void _put_field(uint8_t* buff, Field field);
+void _put_property(uint8_t* buff, Property prop);
+Header_block _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* tag);
+Header_block _store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* node);
+Header_block _store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* edge);
+Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+void _update_metadata(Storage* storage);
+void _expand_storage(Storage* storage);
+void _collapse_storage(Storage* storage);
+
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
 	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata));
@@ -37,14 +49,10 @@ Storage* init_storage(char* file_name) {
 	return storage;
 }
 
-void update_metadata(Storage* storage) {
-	fseek(storage->file, 0, SEEK_SET);
-	fwrite(&(storage->metadata), sizeof(Metadata), 1, storage->file);
+void close_storage(Storage* storage) {
+	fclose(storage->file);
+	free(storage);
 }
-
-Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* extended_tag);
-Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* extended_node);
-Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* extended_edge);
 
 void add_entity(Storage* storage, Data_to_add* data) {
 	FILE* file = storage->file;
@@ -64,54 +72,6 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	
 	update_metadata(storage);
 }
-
-void expand_storage(Storage* storage) {
-	Metadata* metadata = &(storage->metadata);
-	
-	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
-	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
-	
-	uint32_t target_last_header_addr = metadata->headers_offset + metadata->blocks_size * new_capacity; // excluding
-	
-	uint32_t count_of_matching_blocks = 0;
-	uint32_t count_of_matching_blocks_cap = 5; // capacity
-	uint32_t* blocks_to_move = (uint32_t*)malloc(sizeof(uint32_t) * count_of_matching_blocks_cap); // indexes of headers
-	
-	fseek(storage->file, metadata->headers_offset, SEEK_SET);
-	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));
-	for(uint32_t i = 0; i < metadata->blocks_size; i++) {
-		fread(header_buff, sizeof(Header_block), 1, storage->file);
-		if(header_buff->data_offset < target_last_header_addr) {
-			if(count_of_matching_blocks == count_of_matching_blocks_cap) {
-				count_of_matching_blocks_cap += count_of_matching_blocks_cap / 2; 
-				blocks_to_move = (uint32_t*)realloc(blocks_to_move, sizeof(uint32_t) * count_of_matching_blocks_cap);
-			}
-			blocks_to_move[count_of_matching_blocks++] = i;
-		}
-	}
-	
-	for(int i = 0; i < count_of_matching_blocks; i++) {
-		fseek(storage->file, metadata->headers_offset, SEEK_SET);
-		fread(header_buff, sizeof(Header_block), 1, storage->file);
-		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
-		fseek(storage->file, header_buff->data_offset, SEEK_SET);
-		fread(data, header_buff->data_size, 1, storage->file);
-		fseek(storage->file, metadata->data_offset + metadata->data_size, SEEK_SET);
-		fwrite(data, header_buff->data_size, 1, storage->file);
-		metadata->data_size += header_buff->data_size;
-	}
-}
-
-void collapse_storage(Storage* storage) {
-	
-}
-
-void close_storage(Storage* storage) {
-	fclose(storage->file);
-	free(storage);
-}
-
-Node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 
 void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
 	FILE* file = storage->file;
@@ -157,19 +117,60 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 			case NODE_ENTITY: return create_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
 		}
 		
+	}	
+}
+
+void _update_metadata(Storage* storage) {
+	fseek(storage->file, 0, SEEK_SET);
+	fwrite(&(storage->metadata), sizeof(Metadata), 1, storage->file);
+}
+
+void _expand_storage(Storage* storage) {
+	Metadata* metadata = &(storage->metadata);
+	
+	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
+	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
+	
+	uint32_t target_last_header_addr = metadata->headers_offset + metadata->blocks_size * new_capacity; // excluding
+	
+	uint32_t count_of_matching_blocks = 0;
+	uint32_t count_of_matching_blocks_cap = 5; // capacity
+	uint32_t* blocks_to_move = (uint32_t*)malloc(sizeof(uint32_t) * count_of_matching_blocks_cap); // indexes of headers
+	
+	fseek(storage->file, metadata->headers_offset, SEEK_SET);
+	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));
+	for(uint32_t i = 0; i < metadata->blocks_size; i++) {
+		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		if(header_buff->data_offset < target_last_header_addr) {
+			if(count_of_matching_blocks == count_of_matching_blocks_cap) {
+				count_of_matching_blocks_cap += count_of_matching_blocks_cap / 2; 
+				blocks_to_move = (uint32_t*)realloc(blocks_to_move, sizeof(uint32_t) * count_of_matching_blocks_cap);
+			}
+			blocks_to_move[count_of_matching_blocks++] = i;
+		}
 	}
 	
+	for(int i = 0; i < count_of_matching_blocks; i++) {
+		fseek(storage->file, metadata->headers_offset, SEEK_SET);
+		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
+		fseek(storage->file, header_buff->data_offset, SEEK_SET);
+		fread(data, header_buff->data_size, 1, storage->file);
+		fseek(storage->file, metadata->data_offset + metadata->data_size, SEEK_SET);
+		fwrite(data, header_buff->data_size, 1, storage->file);
+		metadata->data_size += header_buff->data_size;
+	}
+	
+	update_metadata();
+}
+
+void _collapse_storage(Storage* storage) {
 	
 }
 
-uint32_t calc_field_size(Field field);
-uint32_t calc_property_size(Property field);
-void put_field(uint8_t* buff, Field field);
-void put_property(uint8_t* buff, Property prop);
 
-Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* extended_tag) {
+Header_block _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* tag) {
 	FILE* file = storage->file;
-	Tag* tag = (Tag*) extended_tag;
 	
 	uint32_t type_size = sizeof(Tag_type);
 	uint32_t name_size = strlen(tag->name);
@@ -189,7 +190,7 @@ Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_o
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Write _type
-	*(cur_buff_addr) = extended_tag->id;
+	*(cur_buff_addr) = tag->id;
 	cur_buff_addr += type_size;
 	
 	// Write _name
@@ -233,9 +234,9 @@ Header_block store_tag(Storage* storage, uint32_t header_offset, uint32_t data_o
 	storage->metadata.data_size += data_size;
 }
 
-Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* extended_node) {
+Header_block _store_node(FILE* file, uint32_t header_offset, uint32_t data_offset, Node* node) {
 	uint32_t tag_id_size = sizeof(uint32_t);
-	uint32_t id_size = calc_field_size(extended_node->id);
+	uint32_t id_size = calc_field_size(node->id);
 	uint32_t properties_size_size = sizeof(uint32_t);
 	uint32_t properties_result_size = 0;
 	
@@ -275,7 +276,7 @@ Header_block store_node(FILE* file, uint32_t header_offset, uint32_t data_offset
 	fwrite(&data_buff, sizeof(uint8_t), data_size, file);
 }
 
-Header_block store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* extended_edge) {
+Header_block _store_edge(FILE* file, uint32_t header_offset, uint32_t data_offset, Edge* extended_edge) {
 	uint32_t tag_id_size = sizeof(uint32_t);
 	uint32_t id_size = calc_field_size(extended_edge->id);
 	uint32_t node_id_size = calc_field_size(extended_edge->node1_id); // *2 in result calculating
@@ -335,11 +336,11 @@ uint32_t calc_field_size(Field field) {
 	}
 }
 
-uint32_t calc_property_size(Property prop) {
+uint32_t _calc_property_size(Property prop) {
 	return strlen(prop.name) + calc_field_size(prop.field);
 }
 
-void put_field(uint8_t* buff, Field field) {
+void _put_field(uint8_t* buff, Field field) {
 	*buff = field.type;
 	uint8_t* val_addr = buff + sizeof(Type);
 	switch(field.type) {
@@ -352,12 +353,12 @@ void put_field(uint8_t* buff, Field field) {
 	}
 }
 
-void put_property(uint8_t* buff, Property prop) {
+void _put_property(uint8_t* buff, Property prop) {
 	strcpy(buff, prop.name);
 	put_field(buff + strlen(prop.name), prop.field);
 }
 
-Field scan_field(uint8_t** stream) {
+Field _scan_field(uint8_t** stream) {
 	uint8_t* cur_addr = *stream;
 	Type type = *(Type*)cur_addr;
 	*stream += sizeof(Type);
@@ -400,7 +401,7 @@ Field scan_field(uint8_t** stream) {
 	}
 }
 
-Property scan_property(uint8_t* stream) {
+Property _scan_property(uint8_t* stream) {
 	uint32_t name_len = strlen(((Property*)stream)->name);
 	char* name = (char*)malloc(name_len + 1);
 	strcpy(name, ((Property*)stream)->name);
@@ -409,7 +410,7 @@ Property scan_property(uint8_t* stream) {
 	return (Property){name, field};
 }
 
-Node* create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
 	
 	Node* cur_node_addr = nodes;

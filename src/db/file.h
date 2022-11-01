@@ -2,6 +2,7 @@
 #define file_h
 
 #include "entities.h"
+#include <stdio.h>
 
 typedef struct {
 	uint32_t blocks_size; // size of working+draft
@@ -69,10 +70,6 @@ Storage* init_storage(char* file_name);
 void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks); // Only WORKING
 
 void add_entity(Storage* storage, Data_to_add* data);
-
-void expand_storage(Storage* storage);
-
-void collapse(Storage* storage);
 
 void close_storage(Storage* storage);
 
