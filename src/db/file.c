@@ -121,7 +121,6 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 			default:
 				assert(0);
 		}
-		
 	}	
 }
 

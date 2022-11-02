@@ -2,9 +2,17 @@
 #define db_h
 
 #include "entities.h"
+#include "file.h"
 
-void create_tag(Tag tag);
-void delete_tag(char* tag_name);
+typedef struct {
+	Storage* storage;
+	
+} Database;
+
+Database* init_database(char* file_name);
+
+void create_tag(Database* db, Tag tag);
+void delete_tag(Database* db, char* tag_name);
 
 
 

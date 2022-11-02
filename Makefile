@@ -8,7 +8,7 @@ run: before build
 before:
 	mkdir $(BUILD_DIR)
 
-build: main.o file.o
+build: main.o file.o db.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
 	mv $(BUILD_DIR)/Program .
 	
@@ -19,6 +19,9 @@ main.o: $(SRC_DIR)/main.c
 
 file.o: $(SRC_DIR)/db/file.c
 	gcc -c $< -o $(BUILD_DIR)/file.o
+	
+db.o: $(SRC_DIR)/db/db.c
+	gcc -c $< -o $(BUILD_DIR)/db.o
 
 file_test.o: $(TEST_DIR)/file_test.c
 	gcc -c $< -o $(BUILD_DIR)/file_test.o
