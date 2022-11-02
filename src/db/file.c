@@ -33,6 +33,7 @@ Storage* init_storage(char* file_name) {
 		uint32_t init_capacity = 10;
 		Metadata metadata = {
 			.blocks_size = 0,
+			.draft_blocks_size = 0,
 			.blocks_capacity = init_capacity,
 			.data_size = 0,
 			.headers_offset = sizeof(Metadata),
@@ -70,6 +71,8 @@ void add_entity(Storage* storage, Data_to_add* data) {
 		case EDGE_ENTITY: _store_edge(storage, new_header_offset, new_data_offset, &data->edge); break;
 		default: assert(0);
 	}
+	
+	if(metadata->blocks_size == metadata->blocks_capacity) _expand_storage(storage);
 }
 
 void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
@@ -167,7 +170,42 @@ void _expand_storage(Storage* storage) {
 }
 
 void _collapse_storage(Storage* storage) {
+	uint32_t left_idx = 0;
+	uint32_t right_idx = storage->metadata.draft_blocks_size - 1;
+	uint32_t headers_offset = storage->metadata.headers_offset;
 	
+	// uint32_t* newIndexesOfReplacedHeaders = (uint32_t*)malloc()
+	fseek(storage->file, headers_offset, SEEK_SET);
+	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block)); // FREE
+	
+	for(;left_idx < right_idx; left_idx++) {
+		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		if(header_buff->status == DRAFT) {
+			for(;left_idx < right_idx; right_idx--) {
+				fseek(storage->file, headers_offset + sizeof(Header_block) * right_idx, SEEK_SET);
+				fread(header_buff, sizeof(Header_block), 1, storage->file);
+				if(header_buff->status == WORKING) {
+					fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET); // mb, set EMPTY status?
+					fwrite(header_buff, sizeof(Header_block), 1, storage->file);
+					right_idx--;
+					break;
+				}
+			}
+		}
+	}
+	
+	uint32_t new_blocks_size = left_idx;
+	
+	// when left_idx == right_idx it can point to one header, and we don't know its status
+	fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET);
+	fread(header_buff, sizeof(Header_block), 1, storage->file);
+	if(header_buff->status == WORKING) new_blocks_size++;
+	free(header_buff);
+	
+	storage->metadata.blocks_size = new_blocks_size;
+	storage->metadata.draft_blocks_size = 0;
+	
+	_update_metadata(storage);
 }
 
 

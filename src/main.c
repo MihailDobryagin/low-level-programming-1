@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "view/entities.h"
+#include "db/entities.h"
 
-int main(int argc, void* args) {
-	printf("Hello world");
+int main(int argc, uint8_t** argv) {
+	char* filename = argv[0];
+
 	return 0;
 }

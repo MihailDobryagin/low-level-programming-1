@@ -6,6 +6,7 @@
 
 typedef struct {
 	uint32_t blocks_size; // size of working+draft
+	uint32_t draft_blocks_size; // size of draft
 	uint32_t blocks_capacity;
 	uint32_t data_size; // working+draft
 	uint32_t headers_offset;
@@ -26,7 +27,7 @@ typedef enum {
 typedef enum {
 	WORKING,
 	DRAFT,
-	EMPTY,
+	EMPTY,  // USELESS NOW
 	DELETED // USELESS NOW
 } Block_status;
 
