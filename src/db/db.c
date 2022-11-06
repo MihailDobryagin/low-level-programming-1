@@ -18,5 +18,7 @@ void create_tag(Database* db, Tag tag) {
 }
 
 void delete_tag(Database* db, char* tag_name) {
-	// Get
+	int idxDelta = 100;
+	
+	Getted_entities* = get_entities(db->storage, ALL, TAG_ENTITY, 0, idxDelta);
 }

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
 
 uint32_t _calc_field_size(Field field);
 uint32_t _calc_property_size(Property field);
@@ -11,18 +12,29 @@ void _put_field(uint8_t* buff, Field field);
 void _put_property(uint8_t* buff, Property prop);
 Field _scan_field(uint8_t** stream);
 Property _scan_property(uint8_t** stream);
-void _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* tag);
-void _store_node(Storage* storage, uint32_t header_offset, uint32_t data_offset, Node* node);
-void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset, Edge* edge);
-Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
-Edge* _create_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+typedef struct {
+	uint32_t size;
+	uint8_t* data;
+} Serialized;
+Serialized _serialize_tag(Tag* tag);
+Serialized _serialize_node(Node* node);
+Serialized _serialize_edge(Edge* edge);
+Tag _parse_tag(uint32_t data_size, uint8_t* data);
+Node _parse_node(uint32_t data_size, uint8_t* data);
+Edge _parse_edge(uint32_t data_size, uint8_t* data);
+Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+void _delete_entity(Storage* storage, uint32_t header_number);
 void _update_metadata(Storage* storage);
 void _expand_storage(Storage* storage);
 void _collapse_storage(Storage* storage);
+uint32_t _generate_block_unique_id();
+bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids);
+
 
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
-	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata));
+	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata)); // FREE
 	size_t readen_for_metadata = fread(metadata_buff, sizeof(Metadata), 1, file);
 	
 	Storage* storage = (Storage*)malloc(sizeof(Storage));
@@ -48,6 +60,8 @@ Storage* init_storage(char* file_name) {
 		storage->metadata = *metadata_buff;
 	}
 	
+	free(metadata_buff);
+	
 	return storage;
 }
 
@@ -57,25 +71,40 @@ void close_storage(Storage* storage) {
 }
 
 void add_entity(Storage* storage, Data_to_add* data) {
-	FILE* file = storage->file;
 	Metadata* metadata = &storage->metadata;
 	
 	assert (metadata->blocks_size < metadata->blocks_capacity);
 	
-	uint32_t new_header_offset = metadata->headers_offset + sizeof(Header_block) * metadata->blocks_size;
-	uint32_t new_data_offset = metadata->data_offset + metadata->data_size;
-	
+	uint32_t header_offset = metadata->headers_offset + sizeof(Header_block) * metadata->blocks_size;
+	uint32_t data_offset = metadata->data_offset + metadata->data_size;
+	Serialized serialized;
 	switch(data->type) {
-		case TAG_ENTITY: _store_tag(storage, new_header_offset, new_data_offset, &data->tag); break;
-		case NODE_ENTITY: _store_node(storage, new_header_offset, new_data_offset, &data->node); break;
-		case EDGE_ENTITY: _store_edge(storage, new_header_offset, new_data_offset, &data->edge); break;
+		case TAG_ENTITY: serialized = _serialize_tag(&data->tag); break;
+		case NODE_ENTITY: serialized = _serialize_node(&data->node); break;
+		case EDGE_ENTITY: serialized = _serialize_edge(&data->edge); break;
 		default: assert(0);
 	}
+	
+	// Store
+	FILE* file = storage->file;
+	
+	uint32_t block_unique_id = _generate_block_unique_id();
+	Header_block header = {block_unique_id, data->type, WORKING, data_offset, serialized.size};
+	fseek(file, header_offset, SEEK_SET);
+	fwrite(&header, sizeof(Header_block), 1, file);
+	
+	fseek(file, data_offset, SEEK_SET);
+	fwrite(serialized.data, sizeof(uint8_t), serialized.size, file);
+	free(serialized.data);
+	
+	storage->metadata.blocks_size++;
+	storage->metadata.data_size += serialized.size;
+	_update_metadata(storage);
 	
 	if(metadata->blocks_size == metadata->blocks_capacity) _expand_storage(storage);
 }
 
-void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
+Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
 	FILE* file = storage->file;
 	Metadata metadata = storage->metadata;
 	
@@ -105,7 +134,7 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 		
 		assert(matched_blocks_number == number_of_blocks); // TODO
 		
-		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size);
+		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size); // FREE
 		uint8_t* cur_data_buff_addr = data_buff;
 		
 		for(uint32_t i = 0; i < number_of_blocks; i++) {
@@ -115,13 +144,46 @@ void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32
 			cur_data_buff_addr += header.data_size;
 		}
 		
+		void* entities;
+		
 		switch(type) {
-			case NODE_ENTITY: return _create_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
-			case EDGE_ENTITY: return _create_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
+			case NODE_ENTITY: entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
+			case EDGE_ENTITY: entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
 			default:
 				assert(0);
 		}
+		
+		Getted_entities* result = (Getted_entities*)malloc(sizeof(Getted_entities));
+		result->size = matched_blocks_number;
+		result->entities = (void*)entities;
+		return result;
 	}	
+}
+
+void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* entity_ids) {
+	uint32_t blocks_size = storage->metadata.blocks_size;
+	uint32_t amount_of_deleted = to_delete_amount;
+	
+	uint32_t headers_buff_size = 20;
+	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block)*headers_buff_size);
+	
+	fseek(storage->file, storage->metadata.headers_offset, SEEK_SET);
+	for(uint32_t i = 0; i < blocks_size && amount_of_deleted != to_delete_amount; i++) {
+		if(headers_buff_size > blocks_size - i) headers_buff_size = blocks_size - i;
+		fread(headers_buff, sizeof(Header_block), headers_buff_size, storage->file);
+		
+		for(uint32_t buff_idx = 0; buff_idx < headers_buff_size&& amount_of_deleted != to_delete_amount; i++) {
+			Header_block* header = headers_buff + buff_idx;
+			if(_is_in_entity_ids(header->block_unique_id, to_delete_amount, entity_ids)) {
+				_delete_entity(storage, i);
+				amount_of_deleted--;
+			}
+		}
+	}
+}
+
+void update_entity(Storage* storage, uint32_t entity_id, Data_to_add modified_entity) {
+	
 }
 
 void _update_metadata(Storage* storage) {
@@ -207,8 +269,7 @@ void _collapse_storage(Storage* storage) {
 	_update_metadata(storage);
 }
 
-
-void _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, Tag* tag) {
+Serialized _serialize_tag(Tag* tag) {
 	uint32_t type_size = sizeof(Tag_type);
 	uint32_t name_size = strlen(tag->name);
 	uint32_t properties_size_size = sizeof(uint32_t);
@@ -221,22 +282,22 @@ void _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, 
 	
 	uint32_t data_size = type_size + (name_size + 1) + properties_size_size + property_types_size + property_names_size;
 	
-	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
+	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	uint8_t* cur_buff_addr = data_buff;
 	
-	// Write _type
+	// Serialize _type
 	*(cur_buff_addr) = tag->type;
 	cur_buff_addr += type_size;
 	
-	// Write _name
+	// Serialize _name
 	strcpy(cur_buff_addr, tag->name);
 	cur_buff_addr += name_size + 1;
 	
-	// Write _properties_size
+	// Serialize _properties_size
 	*(cur_buff_addr) = tag->properties_size;
 	cur_buff_addr += sizeof(uint32_t);
 	
-	// Write _property_types + _property_names
+	// Serialize _property_types + _property_names
 	uint32_t prev_property_names_size = 0;
 	uint32_t property_names_offset = sizeof(Type) * tag->properties_size;
 	for(uint32_t i = 0; i < tag->properties_size; i++) {
@@ -246,23 +307,10 @@ void _store_tag(Storage* storage, uint32_t header_offset, uint32_t data_offset, 
 	}
 	cur_buff_addr += property_types_size + property_names_size;
 	
-	// Store
-	FILE* file = storage->file;
-	
-	Header_block header = {TAG_ENTITY, WORKING, data_offset, data_size};
-	fseek(file, header_offset, SEEK_SET);
-	fwrite(&header, sizeof(Header_block), 1, file);
-	
-	fseek(file, data_offset, SEEK_SET);
-	fwrite(data_buff, sizeof(uint8_t), data_size, file);
-	free(data_buff);
-	
-	storage->metadata.blocks_size++;
-	storage->metadata.data_size += data_size;
-	_update_metadata(storage);
+	return (Serialized){data_size, data_buff};
 }
 
-void _store_node(Storage* storage, uint32_t header_offset, uint32_t data_offset, Node* node) {
+Serialized _serialize_node(Node* node) {
 	uint32_t tag_name_size = strlen(node->tag);
 	uint32_t id_size = _calc_field_size(node->id);
 	uint32_t properties_size_size = sizeof(uint32_t);
@@ -277,37 +325,28 @@ void _store_node(Storage* storage, uint32_t header_offset, uint32_t data_offset,
 	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
 	uint8_t* cur_buff_addr = data_buff;
 	
-	// Write tag_name
+	// Serialize tag_name
 	strcpy(cur_buff_addr, node->tag);
 	cur_buff_addr += tag_name_size + 1;
 	
-	// Write id
+	// Serialize id
 	_put_field(cur_buff_addr, node->id);
 	cur_buff_addr += id_size;
 	
-	// Write _properties_size
+	// Serialize _properties_size
 	*(cur_buff_addr) = node->properties_size;
 	cur_buff_addr += properties_size_size;
 	
-	// Write _properties
+	// Serialize _properties
 	for(uint32_t i = 0; i < node->properties_size; i++) {
 		_put_property(cur_buff_addr, node->properties[i]);
 		cur_buff_addr += _calc_property_size(node->properties[i]);
 	}
 	
-	// Store
-	Header_block header = {NODE_ENTITY, WORKING, data_offset, data_size};
-	
-	FILE* file = storage->file;
-	fseek(file, header_offset, SEEK_SET);
-	fwrite(&header, sizeof(Header_block), 1, file);
-	
-	fseek(file, data_offset, SEEK_SET);
-	fwrite(data_buff, sizeof(uint8_t), data_size, file);
-	free(data_buff);
+	return (Serialized){data_size, data_buff};
 }
 
-void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset, Edge* edge) {
+Serialized _serialize_edge(Edge* edge) {
 	uint32_t tag_name_size = strlen(edge->tag);
 	uint32_t id_size = _calc_field_size(edge->id);
 	uint32_t node1_id_size = _calc_field_size(edge->node1_id);
@@ -323,40 +362,31 @@ void _store_edge(Storage* storage, uint32_t header_offset, uint32_t data_offset,
 	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
 	uint8_t* cur_buff_addr = data_buff;
 	
-	// Write tag_name
+	// Serialize tag_name
 	strcpy(cur_buff_addr, edge->tag);
 	cur_buff_addr += tag_name_size + 1;
 	
-	// Write _id
+	// Serialize _id
 	_put_field(cur_buff_addr, edge->id);
 	cur_buff_addr += id_size;
 	
-	// Write _node_ids
+	// Serialize _node_ids
 	_put_field(cur_buff_addr, edge->node1_id);
 	cur_buff_addr += node1_id_size;
 	_put_field(cur_buff_addr, edge->node2_id);
 	cur_buff_addr += node2_id_size;
 	
-	// Write _properties_size
+	// Serialize _properties_size
 	*(cur_buff_addr) = edge->properties_size;
 	cur_buff_addr += properties_size_size;
 	
-	// Write _properties
+	// Serialize _properties
 	for(uint32_t i = 0; i < edge->properties_size; i++) {
 		_put_property(cur_buff_addr, edge->properties[i]);
 		cur_buff_addr += _calc_property_size(edge->properties[i]);
 	}
 	
-	// Store
-	FILE* file = storage->file;
-	
-	Header_block header = {NODE_ENTITY, WORKING, data_offset, data_size};
-	fseek(file, header_offset, SEEK_SET);
-	fwrite(&header, sizeof(Header_block), 1, file);
-	
-	fseek(file, data_offset, SEEK_SET);
-	fwrite(data_buff, sizeof(uint8_t), data_size, file);
-	free(data_buff);
+	return (Serialized){data_size, data_buff};
 }
 
 uint32_t _calc_field_size(Field field) {
@@ -444,7 +474,7 @@ Property _scan_property(uint8_t** stream) {
 	return (Property){name, field};
 }
 
-Node _create_node(uint8_t* data) {
+Node _parse_node(uint32_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
@@ -464,20 +494,7 @@ Node _create_node(uint8_t* data) {
 	return (Node) {tag_name, id, properties_size, properties};
 }
 
-Node* _create_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
-	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
-	Node* cur_node_addr = nodes;
-	
-	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Node)) {
-		uint8_t* param_addr = (uint8_t*)cur_node_addr;
-		
-		nodes[i] = _create_node((uint8_t*)cur_node_addr);
-	}
-	
-	return nodes;
-}
-
-Edge _create_edge(uint8_t* data) {
+Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
@@ -500,15 +517,51 @@ Edge _create_edge(uint8_t* data) {
 	return (Edge) {tag_name, id, node1_id, node2_id, properties_size, properties};
 }
 
-Edge* _create_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
+	Node* cur_node_addr = nodes;
+	
+	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Node)) {
+		uint8_t* param_addr = (uint8_t*)cur_node_addr;
+		
+		nodes[i] = _parse_node(sizes[i], (uint8_t*)cur_node_addr);
+	}
+	
+	return nodes;
+}
+
+Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Edge* edges = (Edge*)malloc(sizeof(Edge) * blocks_number);
 	Edge* cur_edge_addr = edges;
 	
 	for(uint32_t i = 0; i < blocks_number; i++, cur_edge_addr += sizeof(Edge)) {
 		uint8_t* param_addr = (uint8_t*)cur_edge_addr;
 		
-		edges[i] = _create_edge((uint8_t*)cur_edge_addr);
+		edges[i] = _parse_edge(sizes[i], (uint8_t*)cur_edge_addr);
 	}
 	
 	return edges;
+}
+
+void _delete_entity(Storage* storage, uint32_t header_number) {
+	uint32_t header_offset = storage->metadata.headers_offset + sizeof(Header_block) * header_number;
+	Header_block* header = (Header_block*)malloc(sizeof(Header_block));
+	fseek(storage->file, header_offset, SEEK_SET);
+	fread(header, sizeof(Header_block), 1, storage->file);
+	header->status = DRAFT;
+	fseek(storage->file, header_offset, SEEK_SET);
+	fwrite(header, sizeof(Header_block), 1, storage->file);
+}
+
+uint32_t _generate_block_unique_id() {
+	
+}
+
+// TODO Make optimizations
+bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids) {
+	for(int32_t i = 0; i < size; i++) {
+		if(entity_ids[i] == id) return true;
+	}
+	
+	return false;
 }

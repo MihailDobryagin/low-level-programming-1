@@ -32,6 +32,7 @@ typedef enum {
 } Block_status;
 
 typedef struct {
+	uint32_t block_unique_id;
 	Entity_type type;
 	Block_status status;
 	uint64_t data_offset;
@@ -66,11 +67,20 @@ typedef enum {
 } Getting_mode;
 
 
+typedef struct {
+	uint32_t size;
+	void* entities;
+} Getted_entities;
+
 Storage* init_storage(char* file_name);
 
-void* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks); // Only WORKING
+Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks); // Only WORKING
 
 void add_entity(Storage* storage, Data_to_add* data);
+
+void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* entity_ids);
+
+void update_entity(Storage* storage, uint32_t entity_id, Data_to_add modified_entity);
 
 void close_storage(Storage* storage);
 
