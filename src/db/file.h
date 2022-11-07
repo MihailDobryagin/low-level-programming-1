@@ -69,6 +69,7 @@ typedef enum {
 
 typedef struct {
 	uint32_t size;
+	uint32_t* block_ids;
 	void* entities;
 } Getted_entities;
 

@@ -1,12 +1,12 @@
 #ifndef queries_h
 #define queries_h
 
-#include "entities.h"
+#include "../db/entities.h"
 
 typedef enum {
 	IDS,
-	FILTER
-	BY_RELATION,
+	FILTER,
+	BY_RELATION
 } Node_selection_mode;
 
 typedef struct {
@@ -29,9 +29,9 @@ typedef struct {
 	Node_selection_mode selection_mode;
 	union {
 		Field* ids;
-		bool (*predicate)(struct Node);
+		bool (*predicate)(Node);
 		struct {
-			boolean (*related_node_predicate)(Node);
+			bool (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};
@@ -43,7 +43,7 @@ typedef struct {
 		Field* ids;
 		bool (*predicate)(Node);
 		struct {
-			boolean (*related_node_predicate)(Node);
+			bool (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};
@@ -55,7 +55,7 @@ typedef struct {
 		Field* ids;
 		bool (*predicate)(Node);
 		struct {
-			boolean (*related_node_predicate)(Node);
+			bool (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};

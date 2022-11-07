@@ -6,14 +6,12 @@
 
 typedef struct {
 	Storage* storage;
-	
 } Database;
 
 Database* init_database(char* file_name);
 
-void create_tag(Database* db, Tag tag);
-void delete_tag(Database* db, char* tag_name);
-
-
+Tag get_tag(Database* db, char* tag_name);
+void insert_tag(Database* db, Tag tag);
+void drop_tag(Database* db, char* tag_name);
 
 #endif // !db_h

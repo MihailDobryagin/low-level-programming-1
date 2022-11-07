@@ -23,6 +23,7 @@ Serialized _serialize_edge(Edge* edge);
 Tag _parse_tag(uint32_t data_size, uint8_t* data);
 Node _parse_node(uint32_t data_size, uint8_t* data);
 Edge _parse_edge(uint32_t data_size, uint8_t* data);
+Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 void _store_entity(Storage* storage, Entity_type type, Serialized* serialized);
@@ -106,6 +107,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		uint32_t* matched_blocks_sizes = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
 		uint32_t* matched_blocks = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks); // indexes
 		uint32_t matched_data_size = 0;
+		uint32_t* block_ids = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
 		
 		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
 			Header_block header = headers_buff[i];
@@ -115,10 +117,11 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 			matched_data_size += header.data_size;
 			matched_blocks[matched_blocks_number] = i;
 			matched_blocks_sizes[matched_blocks_number] = header.data_size;
+			block_ids[matched_blocks_number] = header.block_unique_id;
 			matched_blocks_number++;
 		}
 		
-		assert(matched_blocks_number == number_of_blocks); // TODO
+		// assert(matched_blocks_number == number_of_blocks); // TODO
 		
 		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size); // FREE
 		uint8_t* cur_data_buff_addr = data_buff;
@@ -133,6 +136,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		void* entities;
 		
 		switch(type) {
+			case TAG_ENTITY: entities = _parse_tags(matched_blocks_number, matched_blocks_sizes, data_buff);
 			case NODE_ENTITY: entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
 			case EDGE_ENTITY: entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
 			default:
@@ -141,6 +145,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		
 		Getted_entities* result = (Getted_entities*)malloc(sizeof(Getted_entities));
 		result->size = matched_blocks_number;
+		result->block_ids = block_ids;
 		result->entities = (void*)entities;
 		return result;
 	}	
@@ -504,6 +509,36 @@ Property _scan_property(uint8_t** stream) {
 	return (Property){name, field};
 }
 
+Tag _parse_tag(uint32_t data_size, uint8_t* data) {
+	Tag_type type = *((Tag_type*)data);
+	data += sizeof(Tag_type);
+	
+	uint32_t name_len = strlen((char*)data);
+	char* name = (char*)malloc(name_len);
+	strcpy(name, (char*)data);
+	data += name_len;
+	
+	uint32_t properties_size = *((uint32_t*)data);
+	data += sizeof(uint32_t);
+	
+	Type* property_types = (Type*)malloc(sizeof(Type));
+	for(uint32_t i = 0; i< properties_size; i++) {
+		property_types[i] = *((Type*)data);
+		data += sizeof(Type);
+	}
+	
+	char** property_names = (char**)malloc(sizeof(char*) * properties_size);
+	
+	for(uint32_t i = 0; i < properties_size; i++) {
+		uint32_t len = strlen((char*)data);
+		property_names[i] = (char*)malloc(sizeof(char) * len + 1);
+		strcpy(property_names[i], data);
+		data += len + 1;
+	}
+	
+	return (Tag) {type, name, properties_size, property_types, property_names};
+}
+
 Node _parse_node(uint32_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
@@ -545,6 +580,19 @@ Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 	}
 	
 	return (Edge) {tag_name, id, node1_id, node2_id, properties_size, properties};
+}
+
+Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+	Tag* tags = (Tag*)malloc(sizeof(Tag) * blocks_number);
+	Tag* cur_tag_addr = tags;
+	
+	for(uint32_t i = 0; i < blocks_number; i++, cur_tag_addr += sizeof(Tag)) {
+		uint8_t* param_addr = (uint8_t*)cur_tag_addr;
+		
+		tags[i] = _parse_tag(sizes[i], (uint8_t*)cur_tag_addr);
+	}
+	
+	return tags;
 }
 
 Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
