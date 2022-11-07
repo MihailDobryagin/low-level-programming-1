@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 uint32_t _calc_field_size(Field field);
 uint32_t _calc_property_size(Property field);
@@ -24,13 +25,13 @@ Node _parse_node(uint32_t data_size, uint8_t* data);
 Edge _parse_edge(uint32_t data_size, uint8_t* data);
 Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
 Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+void store_entity(Storage* storage, Serialized* serialized);
 void _delete_entity(Storage* storage, uint32_t header_number);
 void _update_metadata(Storage* storage);
 void _expand_storage(Storage* storage);
 void _collapse_storage(Storage* storage);
 uint32_t _generate_block_unique_id();
 bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids);
-
 
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
@@ -85,21 +86,7 @@ void add_entity(Storage* storage, Data_to_add* data) {
 		default: assert(0);
 	}
 	
-	// Store
-	FILE* file = storage->file;
-	
-	uint32_t block_unique_id = _generate_block_unique_id();
-	Header_block header = {block_unique_id, data->type, WORKING, data_offset, serialized.size};
-	fseek(file, header_offset, SEEK_SET);
-	fwrite(&header, sizeof(Header_block), 1, file);
-	
-	fseek(file, data_offset, SEEK_SET);
-	fwrite(serialized.data, sizeof(uint8_t), serialized.size, file);
-	free(serialized.data);
-	
-	storage->metadata.blocks_size++;
-	storage->metadata.data_size += serialized.size;
-	_update_metadata(storage);
+	_store_entity(storage, serialized);
 	
 	if(metadata->blocks_size == metadata->blocks_capacity) _expand_storage(storage);
 }
@@ -182,8 +169,52 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 	}
 }
 
-void update_entity(Storage* storage, uint32_t entity_id, Data_to_add modified_entity) {
+void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data_to_add* modified_entities) {
+	uint32_t blocks_size = storage->metadata.blocks_size;
+	uint32_t amount_of_deleted = to_delete_amount;
 	
+	uint32_t headers_buff_size = 20;
+	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block)*headers_buff_size);
+	
+	fseek(storage->file, storage->metadata.headers_offset, SEEK_SET);
+	for(uint32_t i = 0; i < blocks_size && amount_of_deleted != to_delete_amount; i++) {
+		if(headers_buff_size > blocks_size - i) headers_buff_size = blocks_size - i;
+		fread(headers_buff, sizeof(Header_block), headers_buff_size, storage->file);
+		
+		for(uint32_t buff_idx = 0; buff_idx < headers_buff_size&& amount_of_deleted != to_delete_amount; i++) {
+			Header_block* header = headers_buff + buff_idx;
+			for(uint32_t modified_idx = 0; modified_idx < entity_ids; modified_idx++) {
+				if(entity_ids[modified_idx] == header->block_unique_id) {
+					Serialized serialized;				
+					switch(header->type) {
+						case NODE_ENTITY: serialized = _serialize_node(&modified_entities[modified_idx]->node);
+						case EDGE_ENTITY: serialized = _serialize_edge(&modified_entities[modified_idx]->edge);
+					}
+					_update_entity(storage, i, *header, serialized);
+					
+					amount_of_deleted--;
+				}
+			}
+		}
+		
+	}
+	
+}
+
+void _update_entity(Storage* storage, uint32_t header_number, Header_block header, Serialized serialized) {
+	if(serialized.size > header.data_size) {
+		_delete_entity(storage, header_number);
+		_store_entity(storage, header.type, serialized);
+		return;
+	}
+	
+	storage->metadata.data += serialized.size - header.data_size;
+	header.data_size = serialized.size;
+	fseek(storage->metadata.headers_offset + sizeof(Header_block)*header_number, SEEK_SET);
+	fwrite(&header, sizeof(Header_block), 1, storage->file);
+	fseek(storage->file, header.data_offset, SEEK_SET);
+	fwrite(&serialized.data, sizeof(uint8_t), serialized.size, storage->file);
+	_update_metadata(storage);
 }
 
 void _update_metadata(Storage* storage) {
@@ -553,8 +584,26 @@ void _delete_entity(Storage* storage, uint32_t header_number) {
 	fwrite(header, sizeof(Header_block), 1, storage->file);
 }
 
-uint32_t _generate_block_unique_id() {
+void _store_entity(Storage* storage, Entity_type type, Serialized* serialized) {
+	FILE* file = storage->file;
 	
+	uint32_t block_unique_id = _generate_block_unique_id();
+	Header_block header = {block_unique_id, type, WORKING, data_offset, serialized.size};
+	fseek(file, header_offset, SEEK_SET);
+	fwrite(&header, sizeof(Header_block), 1, file);
+	
+	fseek(file, data_offset, SEEK_SET);
+	fwrite(serialized.data, sizeof(uint8_t), serialized.size, file);
+	free(serialized.data);
+	
+	storage->metadata.blocks_size++;
+	storage->metadata.data_size += serialized.size;
+	_update_metadata(storage);
+}
+
+uint32_t _generate_block_unique_id() {
+	struct timespec t;
+	return clock_gettime(CLOCK_REALTIME, &t).tv_nsec;
 }
 
 // TODO Make optimizations

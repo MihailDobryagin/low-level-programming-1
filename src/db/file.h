@@ -80,7 +80,7 @@ void add_entity(Storage* storage, Data_to_add* data);
 
 void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* entity_ids);
 
-void update_entity(Storage* storage, uint32_t entity_id, Data_to_add modified_entity);
+void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data_to_add* modified_entities);
 
 void close_storage(Storage* storage);
 
