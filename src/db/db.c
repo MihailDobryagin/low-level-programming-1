@@ -10,6 +10,10 @@ Database* init_database(char* file_name) {
 	return db;
 }
 
+void close_database(Database* db) {
+	close_storage(db->storage);
+}
+
 Tag get_tag(Database* db, char* tag_name) {
 	int idx_delta = 100;
 	int cur_idx = 0;

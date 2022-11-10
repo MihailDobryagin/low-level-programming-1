@@ -12,26 +12,27 @@ build: main.o file.o db.o manage.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
 	mv $(BUILD_DIR)/Program .
 	
-rebuild: clean before build
+rebuild: clean build
 
 main.o: $(SRC_DIR)/main.c
-	gcc -c $< -o $(BUILD_DIR)/main.o
+	gcc -g -c $< -o $(BUILD_DIR)/main.o
 
 file.o: $(SRC_DIR)/db/file.c
-	gcc -c $< -o $(BUILD_DIR)/file.o
+	gcc -g -c $< -o $(BUILD_DIR)/file.o
 	
 db.o: $(SRC_DIR)/db/db.c
-	gcc -c $< -o $(BUILD_DIR)/db.o
+	gcc -g -c $< -o $(BUILD_DIR)/db.o
 
 manage.o: $(SRC_DIR)/client/manage.c
-	gcc -c $< -o $(BUILD_DIR)/manage.o
+	gcc -g -c $< -o $(BUILD_DIR)/manage.o
 
 file_test.o: $(TEST_DIR)/file_test.c
-	gcc -c $< -o $(BUILD_DIR)/file_test.o
+	gcc -g -c $< -o $(BUILD_DIR)/file_test.o
 
 test: file.o file_test.o
-	cd build; gcc -B $(BUILD_DIR) $^ -o file_test.out
+	cd build; gcc -g -B $(BUILD_DIR) $^ -o file_test.out
 
 
 clean:
-	rm -r $(BUILD_DIR)
+	rm $(BUILD_DIR)/*
+	rm Program

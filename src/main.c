@@ -4,16 +4,31 @@
 #include "db/db.h"
 #include "client/manage.h"
 #include <assert.h>
-
+#include <stdint.h>
 
 void _print_tag(Tag tag);
 char* _type_as_str(Type type);
 
-int main(int argc, uint8_t** argv) {
-	// char* filename = argv[0];
-	Database* db = init_database("test_file");
-	
-	
+int main(int argc, char** argv) {
+	Database* db = init_database("db_file.txt");
+
+	Type property_types[1] = { STRING };
+	char* property_names[1] = { "description" };
+
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = "tag_name",
+		.properties_size = 1,
+		.property_types = &property_types,
+		.property_names = &property_names
+	};
+
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+	Get_tag get_query = { "tag_name" };
+	Tag getted_tag = tag_info(db, get_query);
+	_print_tag(tag);
+	close_database(db);
 	return 0;
 }
 

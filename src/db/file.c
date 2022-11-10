@@ -63,7 +63,7 @@ Storage* init_storage(char* file_name) {
 		storage->metadata = *metadata_buff;
 	}
 	
-	free(metadata_buff);
+	//free(metadata_buff);
 	
 	return storage;
 }

@@ -9,6 +9,7 @@ typedef struct {
 } Database;
 
 Database* init_database(char* file_name);
+void close_database(Database* db);
 
 Tag get_tag(Database* db, char* tag_name);
 void insert_tag(Database* db, Tag tag);
