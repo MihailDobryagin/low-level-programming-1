@@ -42,7 +42,6 @@ Storage* init_storage(char* file_name) {
 	
 	Storage* storage = (Storage*)malloc(sizeof(Storage));
 	storage->file = file;
-	
 	if(readen_for_metadata == 0) {
 		printf("Metadata was not found\n");
 		uint32_t init_capacity = 10;
@@ -54,16 +53,15 @@ Storage* init_storage(char* file_name) {
 			.headers_offset = sizeof(Metadata),
 			.data_offset = sizeof(Metadata) + sizeof(Header_block) * init_capacity
 		};
-		
+		free(metadata_buff);
 		metadata_buff = &metadata;
 		fwrite(metadata_buff, sizeof(Metadata), 1, file);
 		storage->metadata = metadata;
 	}
 	else {
 		storage->metadata = *metadata_buff;
+		free(metadata_buff);
 	}
-	
-	//free(metadata_buff);
 	
 	return storage;
 }
@@ -136,9 +134,12 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		void* entities;
 		
 		switch(type) {
-			case TAG_ENTITY: entities = _parse_tags(matched_blocks_number, matched_blocks_sizes, data_buff);
-			case NODE_ENTITY: entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff);
-			case EDGE_ENTITY: entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff);
+			case TAG_ENTITY: 
+				entities = _parse_tags(matched_blocks_number, matched_blocks_sizes, data_buff); break;
+			case NODE_ENTITY: 
+				entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff); break;
+			case EDGE_ENTITY: 
+				entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff); break;
 			default:
 				assert(0);
 		}
@@ -514,9 +515,9 @@ Tag _parse_tag(uint32_t data_size, uint8_t* data) {
 	data += sizeof(Tag_type);
 	
 	uint32_t name_len = strlen((char*)data);
-	char* name = (char*)malloc(name_len);
+	char* name = (char*)malloc(name_len + 1);
 	strcpy(name, (char*)data);
-	data += name_len;
+	data += name_len + 1;
 	
 	uint32_t properties_size = *((uint32_t*)data);
 	data += sizeof(uint32_t);
@@ -584,9 +585,9 @@ Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 
 Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Tag* tags = (Tag*)malloc(sizeof(Tag) * blocks_number);
-	Tag* cur_tag_addr = tags;
+	Tag* cur_tag_addr = data;
 	
-	for(uint32_t i = 0; i < blocks_number; i++, cur_tag_addr += sizeof(Tag)) {
+	for(uint32_t i = 0; i < blocks_number; i++, cur_tag_addr += sizes[i]) {
 		uint8_t* param_addr = (uint8_t*)cur_tag_addr;
 		
 		tags[i] = _parse_tag(sizes[i], (uint8_t*)cur_tag_addr);

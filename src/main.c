@@ -10,6 +10,7 @@ void _print_tag(Tag tag);
 char* _type_as_str(Type type);
 
 int main(int argc, char** argv) {
+	int* tmp = (int*)malloc(sizeof(int));
 	Database* db = init_database("db_file.txt");
 
 	Type property_types[1] = { STRING };
@@ -29,6 +30,7 @@ int main(int argc, char** argv) {
 	Tag getted_tag = tag_info(db, get_query);
 	_print_tag(tag);
 	close_database(db);
+	while (true);
 	return 0;
 }
 
