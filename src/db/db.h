@@ -1,7 +1,6 @@
 #ifndef db_h
 #define db_h
 
-#include "entities.h"
 #include "file.h"
 
 typedef struct {
@@ -15,4 +14,11 @@ Tag get_tag(Database* db, char* tag_name);
 void insert_tag(Database* db, Tag tag);
 void drop_tag(Database* db, char* tag_name);
 
+Array_node get_nodes(Database* db, char* tag_name);
+void insert_node(Database* db, Node node);
+void drop_node(Database* db, char* tag_name, Field id);
+
+//void get_edges(Database* db, char* tag_name);
+//void insert_edge(Database* db, char* tag_name);
+//void delete_edge(Database* db, )
 #endif // !db_h

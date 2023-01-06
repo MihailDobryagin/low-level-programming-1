@@ -4,6 +4,7 @@
 #include "../db/entities.h"
 
 typedef enum {
+	ALL_NODES,
 	IDS,
 	FILTER,
 	BY_RELATION
@@ -23,12 +24,16 @@ typedef struct {
 
 typedef struct {
 	Node node;
-} Insert_node;
+} Create_node;
 
 typedef struct {
+	char* tag_name;
 	Node_selection_mode selection_mode;
 	union {
-		Field* ids;
+		struct {
+			uint32_t target_ids_size;
+			Field* ids;
+		};
 		bool (*predicate)(Node);
 		struct {
 			bool (*related_node_predicate)(Node);
@@ -64,7 +69,7 @@ typedef struct {
 
 typedef struct {
 	Edge edge;
-} Insert_edge;
+} Create_edge;
 
 typedef struct {
 	bool (*predicate)(Edge);

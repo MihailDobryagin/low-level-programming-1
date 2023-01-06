@@ -124,7 +124,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size); // FREE
 		uint8_t* cur_data_buff_addr = data_buff;
 		
-		for(uint32_t i = 0; i < number_of_blocks; i++) {
+		for(uint32_t i = 0; i < matched_blocks_number; i++) {
 			Header_block header = headers_buff[matched_blocks[i]];
 			fseek(file, header.data_offset, SEEK_SET);
 			fread(cur_data_buff_addr, header.data_size, 1, file);
@@ -426,18 +426,22 @@ Serialized _serialize_edge(Edge* edge) {
 }
 
 uint32_t _calc_field_size(Field field) {
+	uint32_t type_size = sizeof(Type);
+	uint32_t value_size;
 	switch(field.type) {
-		case BYTE: return 1;
-		case NUMBER: return 4;
-		case BOOLEAN: return 1;
-		case CHARACTER: return 1;
-		case STRING: return strlen(field.string);
+		case BYTE: value_size = sizeof(int8_t); break;
+		case NUMBER: value_size = sizeof(int32_t); break;
+		case BOOLEAN: value_size = sizeof(bool); break;
+		case CHARACTER: value_size = sizeof(char); break;
+		case STRING: value_size = strlen(field.string) + 1; break;
 		default: assert(0);
 	}
+
+	return type_size + value_size;
 }
 
 uint32_t _calc_property_size(Property prop) {
-	return strlen(prop.name) + _calc_field_size(prop.field);
+	return strlen(prop.name) + 1 + _calc_field_size(prop.field);
 }
 
 void _put_field(uint8_t* buff, Field field) {
@@ -455,13 +459,13 @@ void _put_field(uint8_t* buff, Field field) {
 
 void _put_property(uint8_t* buff, Property prop) {
 	strcpy(buff, prop.name);
-	_put_field(buff + strlen(prop.name), prop.field);
+	_put_field(buff + strlen(prop.name) + 1, prop.field);
 }
 
 Field _scan_field(uint8_t** stream) {
 	uint8_t* cur_addr = *stream;
 	Type type = *(Type*)cur_addr;
-	*stream += sizeof(Type);
+	cur_addr += sizeof(Type);
 	
 	union {
 		int8_t byte;
@@ -472,33 +476,42 @@ Field _scan_field(uint8_t** stream) {
 	} value;
 	
 	uint32_t string_len;
-	
+	Field result;
 	switch(type) {
 		case BYTE: 
-			value.byte = *(uint8_t*)stream; 
-			*stream += sizeof(int8_t); 
-			return (Field){type, .byte = value.byte};
+			value.byte = *(uint8_t*)cur_addr; 
+			cur_addr += sizeof(int8_t); 
+			result = (Field){type, .byte = value.byte};
+			break;
 		case CHARACTER: 
-			value.character = *(char*)stream; 
-			*stream += sizeof(char); 
-			return (Field){type, .character = value.character};;
+			value.character = *(char*)cur_addr;
+			cur_addr += sizeof(char);
+			result = (Field){type, .character = value.character};
+			break;
 		case BOOLEAN: 
-			value.boolean = *(uint8_t*)stream != 0;
-			*stream += sizeof(uint8_t); 
-			return (Field){type, .boolean = value.boolean};
+			value.boolean = *(uint8_t*)cur_addr != 0;
+			cur_addr += sizeof(uint8_t);
+			result = (Field){type, .boolean = value.boolean};
+			break;
 		case NUMBER: 
-			value.number = *(int32_t*)stream; 
-			*stream += sizeof(int32_t); 
-			return (Field){type, .number = value.number};
+			value.number = *(int32_t*)cur_addr;
+			cur_addr += sizeof(int32_t);
+			result = (Field){type, .number = value.number};
+			break;
 		case STRING: 
-			string_len = strlen((char*)stream);
+			string_len = strlen((char*)cur_addr);
 			value.string = (char*)malloc(string_len + 1);
-			strcpy(value.string, *stream);
+			strcpy(value.string, cur_addr);
 			value.string[string_len] = '\0';
-			*stream += string_len + 1;
-			return (Field){type, .string = value.string};
+			cur_addr += string_len + 1;
+			result = (Field){type, .string = value.string};
+			break;
 		default: assert(0);
 	}
+
+	*stream = cur_addr;
+
+	return result;
 }
 
 Property _scan_property(uint8_t** stream) {
@@ -544,7 +557,7 @@ Node _parse_node(uint32_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
-	data += tag_name_len;
+	data += tag_name_len + 1;
 	
 	Field id = _scan_field(&data);
 	
@@ -598,12 +611,9 @@ Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 
 Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
-	Node* cur_node_addr = nodes;
 	
-	for(uint32_t i = 0; i < blocks_number; i++, cur_node_addr += sizeof(Node)) {
-		uint8_t* param_addr = (uint8_t*)cur_node_addr;
-		
-		nodes[i] = _parse_node(sizes[i], (uint8_t*)cur_node_addr);
+	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
+		nodes[i] = _parse_node(sizes[i], data);
 	}
 	
 	return nodes;

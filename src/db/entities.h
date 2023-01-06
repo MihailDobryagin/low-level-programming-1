@@ -62,5 +62,10 @@ typedef struct {
 	Property* properties;
 } Edge;
 
+typedef struct {
+	uint32_t size;
+	Node* values;
+} Array_node;
+
 
 #endif // !entities_h

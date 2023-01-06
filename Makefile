@@ -8,7 +8,7 @@ run: before build
 before:
 	mkdir $(BUILD_DIR)
 
-build: main.o file.o db.o manage.o
+build: main.o file.o db.o manage.o entities.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
 	mv $(BUILD_DIR)/Program .
 	
@@ -16,6 +16,9 @@ rebuild: clean build
 
 main.o: $(SRC_DIR)/main.c
 	gcc -g -c $< -o $(BUILD_DIR)/main.o
+
+entities.o: $(SRC_DIR)/db/entities.c
+	gcc -g -c $< -o $(BUILD_DIR)/entities.o
 
 file.o: $(SRC_DIR)/db/file.c
 	gcc -g -c $< -o $(BUILD_DIR)/file.o
