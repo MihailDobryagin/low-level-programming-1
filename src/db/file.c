@@ -98,6 +98,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 	
 	if(mode == ALL) {
 		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);
+		fseek(file, metadata.headers_offset, SEEK_SET);
 		fread(headers_buff, sizeof(Header_block), metadata.blocks_size, file);
 		
 		uint32_t passed_blocks = 0;
@@ -110,7 +111,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
 			Header_block header = headers_buff[i];
 			if(header.status != WORKING || header.type != type) continue;
-			if(passed_blocks++ != start_index) continue;
+			if(passed_blocks++ < start_index) continue;
 			
 			matched_data_size += header.data_size;
 			matched_blocks[matched_blocks_number] = i;
@@ -598,12 +599,9 @@ Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 
 Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Tag* tags = (Tag*)malloc(sizeof(Tag) * blocks_number);
-	Tag* cur_tag_addr = data;
 	
-	for(uint32_t i = 0; i < blocks_number; i++, cur_tag_addr += sizes[i]) {
-		uint8_t* param_addr = (uint8_t*)cur_tag_addr;
-		
-		tags[i] = _parse_tag(sizes[i], (uint8_t*)cur_tag_addr);
+	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
+		tags[i] = _parse_tag(sizes[i], (uint8_t*)data);
 	}
 	
 	return tags;
@@ -621,12 +619,9 @@ Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 
 Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
 	Edge* edges = (Edge*)malloc(sizeof(Edge) * blocks_number);
-	Edge* cur_edge_addr = edges;
 	
-	for(uint32_t i = 0; i < blocks_number; i++, cur_edge_addr += sizeof(Edge)) {
-		uint8_t* param_addr = (uint8_t*)cur_edge_addr;
-		
-		edges[i] = _parse_edge(sizes[i], (uint8_t*)cur_edge_addr);
+	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
+		edges[i] = _parse_edge(sizes[i], data);
 	}
 	
 	return edges;

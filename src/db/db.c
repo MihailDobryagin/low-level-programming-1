@@ -81,7 +81,7 @@ void drop_tag(Database* db, char* tag_name) {
 
 Array_node get_nodes(Database* db, char* tag_name) {
 	const uint32_t idx_delta = 100;
-	const uint32_t cur_idx = 0;
+	uint32_t cur_idx = 0;
 	const uint32_t result_initial_size = 100;
 
 	Getted_entities* selected = NULL;
@@ -107,6 +107,7 @@ Array_node get_nodes(Database* db, char* tag_name) {
 				}
 			}
 		}
+		cur_idx += idx_delta;
 		free(selected);
 		selected = NULL;
 	}

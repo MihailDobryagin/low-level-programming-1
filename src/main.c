@@ -16,22 +16,33 @@ char* _field_as_str(Field field);
 int main(int argc, char** argv) {
 	Database* db = init_database("db_file.txt");
 
-	Type property_types[1] = { STRING };
-	char* property_names[1] = { "description" };
-
 	Tag tag = {
 		.type = NODE_TAG_TYPE,
 		.name = "tag_name",
 		.properties_size = 1,
-		.property_types = &property_types,
-		.property_names = &property_names
+		.property_types = &((Type [1]){ STRING }),
+		.property_names = &((char*[1]) { "description" })
+	};
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+	
+	tag = (Tag){
+		.type = NODE_TAG_TYPE,
+		.name = "animals",
+		.properties_size = 1,
+		.property_types = &((Type [1]){ BOOLEAN }),
+		.property_names = &((char*[1]) { "is_alive" })
 	};
 
-	Create_tag create_tag_query = { tag };
-	//create_tag(db, create_tag_query);
+	create_tag_query = (Create_tag){ tag };
+	create_tag(db, create_tag_query);
+
 	Get_tag get_query = { "tag_name" };
-	//Tag getted_tag = tag_info(db, get_query);
-	//_print_tag(tag);
+	Tag getted_tag = tag_info(db, get_query);
+	_print_tag(getted_tag);
+	get_query = (Get_tag){ "animals" };
+	getted_tag = tag_info(db, get_query);
+	_print_tag(getted_tag);
 
 	Property node_properties[2] = {
 		(Property) {
@@ -43,7 +54,7 @@ int main(int argc, char** argv) {
 	};
 
 	Node node = {
-		.tag = "tag_name",
+		.tag = "animals",
 		.id = (Field) {.type = CHARACTER, .character = '$'},
 		.properties_size = 2,
 		.properties = node_properties,
@@ -62,7 +73,7 @@ int main(int argc, char** argv) {
 	_print_node(getted_nodes.values[0]);
 
 	close_database(db);
-	while (true);
+	
 	return 0;
 }
 
@@ -73,26 +84,26 @@ void _print_tag(Tag tag) {
 		case EDGE_TAG_TYPE: type_as_str = "Edge"; break;
 		default: assert(0);
 	}
-	printf("\n\n--------------------TAG--------------------\n");
+	printf("\n\n++++++++++++++++++++TAG++++++++++++++++++++\n");
 	printf("type: %s\n", type_as_str);
 	printf("name: %s\n", tag.name);
 	printf("properties:\n");
 	for(uint32_t i = 0; i < tag.properties_size; i++) {
-		printf("\t%15s -> %s\n", _type_as_str(tag.property_types[i]), tag.property_names[i]);
+		printf("\t%15s : <%s>\n", tag.property_names[i], _type_as_str(tag.property_types[i]));
 	}
 	printf("\n\n--------------------TAG--------------------\n");
 }
 
 void _print_node(Node node) {
-	printf("\n\n--------------------NODE-------------------\n");
-	printf("Tag: %s\n", node.tag);
+	printf("\n\n++++++++++++++++++++NODE+++++++++++++++++++\n");
+	printf("Tag: '%s'\n", node.tag);
 	printf("Id: %s\n", _field_as_str(node.id));
 	
-	printf("\t ------------------------------\n");
+	printf("\t --------------------------------\n");
 	for(uint32_t i = 0; i < node.properties_size; i++) {
-		printf("\t|%15s -> %10s|\n", node.properties[i].name, _field_as_str(node.properties[i].field));
+		printf("\t|%15s -> %10s\t|\n", node.properties[i].name, _field_as_str(node.properties[i].field));
 	}
-	printf("\t ------------------------------\n");
+	printf("\t --------------------------------\n");
 	printf("\n\n--------------------NODE-------------------\n");
 }
 
