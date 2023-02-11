@@ -8,7 +8,7 @@ run: before build
 before:
 	mkdir $(BUILD_DIR)
 
-build: main.o file.o db.o manage.o entities.o
+build: main.o file.o db.o manage.o entities.o strings.o std_out.o test_objects_creation.o
 	cd build; gcc -B $(BUILD_DIR) $^ -o Program
 	mv $(BUILD_DIR)/Program .
 	
@@ -28,6 +28,15 @@ db.o: $(SRC_DIR)/db/db.c
 
 manage.o: $(SRC_DIR)/client/manage.c
 	gcc -g -c $< -o $(BUILD_DIR)/manage.o
+
+strings.o: $(SRC_DIR)/utils/strings.c
+	gcc -g -c $< -o $(BUILD_DIR)/strings.o
+	
+std_out.o: $(SRC_DIR)/utils/std_out.c
+	gcc -g -c $< -o $(BUILD_DIR)/std_out.o
+
+test_objects_creation.o: $(SRC_DIR)/test_utils/test_objects_creation.c
+	gcc -g -c $< -o $(BUILD_DIR)/test_objects_creation.o
 
 file_test.o: $(TEST_DIR)/file_test.c
 	gcc -g -c $< -o $(BUILD_DIR)/file_test.o

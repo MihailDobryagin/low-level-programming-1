@@ -67,5 +67,9 @@ typedef struct {
 	Node* values;
 } Array_node;
 
+typedef struct {
+	uint32_t size;
+	Edge* values;
+} Array_edge;
 
 #endif // !entities_h

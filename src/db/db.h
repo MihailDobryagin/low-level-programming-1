@@ -18,7 +18,7 @@ Array_node get_nodes(Database* db, char* tag_name);
 void insert_node(Database* db, Node node);
 void drop_node(Database* db, char* tag_name, Field id);
 
-//void get_edges(Database* db, char* tag_name);
-//void insert_edge(Database* db, char* tag_name);
+Array_edge get_edges(Database* db, char* tag_name);
+void insert_edge(Database* db, char* tag_name);
 //void delete_edge(Database* db, )
 #endif // !db_h
