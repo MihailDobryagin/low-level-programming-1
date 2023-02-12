@@ -4,6 +4,19 @@
 #include "../db/entities.h"
 #include "../client/manage.h"
 
+void create_animals_tag(Database* db) {
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = "animals",
+		.properties_size = 1,
+		.property_types = &((Type[1]) { BOOLEAN }),
+		.property_names = &((char* [1]) { "is_alive" })
+	};
+
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+}
+
 void create_sharik(Database* db) {
 	Property node_properties[3] = {
 		(Property) {

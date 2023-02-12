@@ -9,7 +9,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static void _clear_db_file();
+
 int main(int argc, char** argv) {
+	_clear_db_file();
 	Database* db = init_database("db_file.txt");
 
 	Tag tag = {
@@ -22,16 +25,7 @@ int main(int argc, char** argv) {
 	Create_tag create_tag_query = { tag };
 	create_tag(db, create_tag_query);
 	
-	tag = (Tag){
-		.type = NODE_TAG_TYPE,
-		.name = "animals",
-		.properties_size = 1,
-		.property_types = &((Type [1]){ BOOLEAN }),
-		.property_names = &((char*[1]) { "is_alive" })
-	};
-
-	create_tag_query = (Create_tag){ tag };
-	create_tag(db, create_tag_query);
+	create_animals_tag(db);
 
 	Get_tag get_query = { "tag_name" };
 	Tag getted_tag = tag_info(db, get_query);
@@ -62,4 +56,8 @@ int main(int argc, char** argv) {
 	close_database(db);
 	
 	return 0;
+}
+
+static void _clear_db_file() {
+	fclose(fopen("db_file.txt", "w"));
 }

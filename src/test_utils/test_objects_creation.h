@@ -3,6 +3,7 @@
 
 #include "../db/db.h"
 
+void create_animals_tag(Database* db);
 void create_sharik(Database* db);
 void create_matroskin(Database* db);
 
