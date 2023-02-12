@@ -20,6 +20,8 @@ void drop_node(Database* db, char* tag_name, Field id);
 void update_node(Database* db, Node changed_node);
 
 Array_edge get_edges(Database* db, char* tag_name);
-void insert_edge(Database* db, char* tag_name);
-//void delete_edge(Database* db, )
+void insert_edge(Database* db, Edge edge);
+void drop_edge(Database* db, char* tag_name, Field id);
+void update_edge(Database* db, Edge changed_edge);
+
 #endif // !db_h

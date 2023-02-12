@@ -580,7 +580,7 @@ static Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
-	data += tag_name_len;
+	data += tag_name_len + 1;
 	
 	Field id = _scan_field(&data);
 	

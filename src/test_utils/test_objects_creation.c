@@ -88,3 +88,71 @@ void grow_matroskin_for_1_age(Database* db) {
 	Change_node update_node_query = { node };
 	change_node(db, update_node_query);
 }
+
+bool matroskin_filter(Node node) {
+	Field expected_name_field = { .type = STRING, .string = "Matroskin" };
+	for (int i = 0; i < node.properties_size; i++) {
+		Property property = node.properties[i];
+		if (strcmp(property.name, "name") == 0 && compare_fields(expected_name_field, property.field)) return true;
+	}
+
+	return false;
+}
+
+bool sharik_filter(Node node) {
+	Field expected_name_field = { .type = STRING, .string = "Sharik" };
+	for (int i = 0; i < node.properties_size; i++) {
+		Property property = node.properties[i];
+		if (strcmp(property.name, "name") == 0 && compare_fields(expected_name_field, property.field)) return true;
+	}
+
+	return false;
+}
+
+void create_friendship(Database* db) {
+	Tag friendship_tag = {
+		.type = EDGE_ENTITY,
+		.name = "friendship",
+		.properties_size = 2,
+		.property_types = &((Type[2]) { BYTE, BYTE }),
+		.property_names = &((char* [3]) { "time", "leve" })
+	};
+	create_tag(db, (Create_tag) { friendship_tag });
+}
+
+void create_friendship_between_matroskin_and_sharik(Database* db, Node matroskin, Node sharik) {
+	Property friendship_properties[2] = {
+		(Property) {
+		.name = "time", .field = (Field){.type = BYTE, .byte = 2}
+		},
+		(Property) {
+		.name = "level", .field = (Field){.type = BYTE, .byte = 10}
+		}
+	};
+
+	Edge friendship_edge = {
+		.tag = "friendship",
+		.id = (Field){.type = STRING, .string = "/'-'\\"},
+		.node1_id = matroskin.id,
+		.node2_id = sharik.id,
+		.properties_size = 2,
+		.properties = friendship_properties
+	};
+
+	create_edge(db, (Create_edge) { friendship_edge });
+}
+
+void make_quarrel(Database* db, Edge edge) {
+	Property new_friendship_properties[2] = {
+		(Property) {
+		.name = "time", .field = (Field){.type = BYTE, .byte = 2}
+		},
+		(Property) {
+		.name = "level", .field = (Field){.type = BYTE, .byte = 4}
+		}
+	};
+
+	edge.properties = new_friendship_properties;
+
+	change_edge(db, (Change_edge) { edge });
+}

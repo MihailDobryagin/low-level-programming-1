@@ -5,10 +5,16 @@
 
 typedef enum {
 	ALL_NODES,
-	IDS,
-	FILTER,
-	BY_RELATION
+	NODE_IDS,
+	NODE_FILTER
 } Node_selection_mode;
+
+typedef enum {
+	ALL_EDGES,
+	EDGE_IDS,
+	BY_LINKED_NODE,
+	EDGE_FILTER
+} Edge_selection_mode;
 
 typedef struct {
 	Tag tag;
@@ -27,34 +33,6 @@ typedef struct {
 } Create_node;
 
 typedef struct {
-	char* tag_name;
-	Node_selection_mode selection_mode;
-	union {
-		struct {
-			uint32_t target_ids_size;
-			Field* ids;
-		};
-		bool (*predicate)(Node);
-		struct {
-			bool (*related_node_predicate)(Node);
-			char* edge_tag;
-		} relation;
-	};
-} Get_nodes;
-
-typedef struct {
-	Node_selection_mode selection_mode;
-	union {
-		Field* ids;
-		bool (*predicate)(Node);
-		struct {
-			bool (*related_node_predicate)(Node);
-			char* edge_tag;
-		} relation;
-	};
-} Delete_nodes;
-
-typedef struct {
 	Node_selection_mode selection_mode;
 	char* tag_name;
 	union {
@@ -63,10 +41,6 @@ typedef struct {
 			Field* ids;
 		};
 		bool (*predicate)(Node);
-		struct {
-			bool (*related_node_predicate)(Node);
-			char* edge_tag;
-		} relation;
 	};
 } Select_nodes;
 
@@ -79,17 +53,24 @@ typedef struct {
 } Create_edge;
 
 typedef struct {
-	bool (*predicate)(Edge);
-} Get_edges;
+	Edge_selection_mode selection_mode;
+	char* tag_name;
+	union {
+		struct {
+			uint32_t target_ids_size;
+			Field* ids;
+		};
+		Field node_id;
+		bool (*predicate)(Edge);
+	};
+} Select_edges;
 
 typedef struct {
 	bool (*predicate)(Edge);
 } Delete_edges;
 
-
 typedef struct {
-	bool (*predicate)(Edge);
-	Property* new_properties;
-} Update_edges;
+	Edge changed_edge;
+} Change_edge;
 
 #endif // !queries_h

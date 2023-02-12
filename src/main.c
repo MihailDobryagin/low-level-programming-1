@@ -11,10 +11,11 @@
 
 static void _clear_db_file();
 static void _test_CRUD_for_nodes();
+static void _test_CRUD_for_edges();
 
 int main(int argc, char** argv) {
 	
-	_test_CRUD_for_nodes();
+	_test_CRUD_for_edges();
 
 	return 0;
 }
@@ -67,7 +68,7 @@ static void _test_CRUD_for_nodes() {
 	///////////////////////////////////////////////////////
 
 	printf("Deleting 'Sharik'...");
-	delete_nodes(db, (Select_nodes) { .selection_mode = IDS, .tag_name = "animals", .target_ids_size = 1, .ids = &getted_nodes.values[0].id });
+	delete_nodes(db, (Select_nodes) { .selection_mode = NODE_IDS, .tag_name = "animals", .target_ids_size = 1, .ids = &getted_nodes.values[0].id });
 
 
 	///////////////////////////////////////////////////////
@@ -132,6 +133,36 @@ static void _test_CRUD_for_nodes() {
 
 
 	close_database(db);
+}
+
+static void _test_CRUD_for_edges() {
+	_clear_db_file();
+	Database* db = init_database("db_file.txt");
+	create_animals_tag(db);
+	create_matroskin(db);
+	create_sharik(db);
+	Array_node getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = matroskin_filter });
+	Node matroskin = getted_nodes.values[0];
+	getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = sharik_filter });
+	Node sharik = getted_nodes.values[0];
+	
+	create_friendship(db);
+	create_friendship_between_matroskin_and_sharik(db, matroskin, sharik);
+
+	Array_edge getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
+	Edge actual_friendship_edge = getted_edges.values[0];
+
+	delete_edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = sharik.id });
+	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
+	
+	create_friendship_between_matroskin_and_sharik(db, matroskin, sharik);
+
+	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
+	actual_friendship_edge = getted_edges.values[0];
+
+	make_quarrel(db, actual_friendship_edge);
+	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
+	actual_friendship_edge = getted_edges.values[0];
 }
 
 static void _clear_db_file() {

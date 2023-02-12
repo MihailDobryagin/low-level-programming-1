@@ -172,3 +172,97 @@ void update_node(Database* db, Node node) {
 		}
 	}
 }
+
+Array_edge get_edges(Database* db, char* tag_name) {
+	const uint32_t idx_delta = 100;
+	uint32_t cur_idx = 0;
+	const uint32_t result_initial_size = 100;
+
+	Getted_entities* selected = NULL;
+
+	Edge* result = (Edge*)malloc(sizeof(Edge) * result_initial_size);
+	uint32_t current_size = 0;
+	uint32_t current_capacity = result_initial_size;
+
+	while (selected == NULL) {
+		selected = get_entities(db->storage, ALL, EDGE_ENTITY, cur_idx, idx_delta);
+		Edge* edges = (Edge*)selected->entities;
+
+		if (selected->size == 0) {
+			break;
+		}
+
+		for (uint32_t i = 0; i < selected->size; i++) {
+			if (strcmp(edges[i].tag, tag_name) == 0) {
+				result[current_size++] = edges[i];
+				if (current_size == current_capacity) {
+					current_capacity = current_capacity * 3 / 2;
+					result = (Edge*)realloc(result, current_capacity);
+				}
+			}
+		}
+		cur_idx += idx_delta;
+		free(selected);
+		selected = NULL;
+	}
+
+	return (Array_edge) { current_size, result };
+}
+
+void insert_edge(Database* db, Edge edge) {
+	Data_to_add data = {
+		.edge= edge,
+		.type = EDGE_ENTITY
+	};
+
+	add_entity(db->storage, &data);
+}
+
+void drop_edge(Database* db, char* tag_name, Field id) {
+	int idx_delta = 100;
+	int cur_idx = 0;
+
+	Getted_entities* selected = NULL;
+	while (selected == NULL) {
+		selected = get_entities(db->storage, ALL, EDGE_ENTITY, cur_idx, idx_delta);
+		Edge* edges= (Edge*)selected->entities;
+		if (selected->size == 0) {
+			printf("No any nodes were found");
+			assert(0);
+		}
+
+		for (uint32_t i = 0; i < selected->size; i++) {
+			if (strcmp(edges[i].tag, tag_name) == 0 && compare_fields(id, edges[i].id)) {
+				uint32_t block_id = selected->block_ids[0];
+				delete_entitites(db->storage, 1, &block_id);
+				free(selected);
+				return;
+			}
+		}
+	}
+}
+
+void update_edge(Database* db, Edge edge) {
+	int idx_delta = 100;
+	int cur_idx = 0;
+
+	Getted_entities* selected = NULL;
+	while (selected == NULL) {
+		selected = get_entities(db->storage, ALL, EDGE_ENTITY, cur_idx, idx_delta);
+		Edge* edges = (Edge*)selected->entities;
+		if (selected->size == 0) {
+			printf("No any nodes were found");
+			assert(0);
+		}
+
+		for (uint32_t i = 0; i < selected->size; i++) {
+			if (strcmp(edges[i].tag, edge.tag) == 0 && compare_fields(edge.id, edges[i].id)) {
+				uint32_t block_id = selected->block_ids[0];
+				Data_to_add data_to_update = { .edge = edge, .type = NODE_ENTITY };
+				update_entities(db->storage, 1, &block_id, &data_to_update);
+				free(selected);
+				return;
+			}
+		}
+	}
+}
