@@ -2,6 +2,8 @@
 #include "../db/db.h"
 #include <assert.h>
 
+
+
 void create_tag(Database* db, Create_tag query) {
 	insert_tag(db, query.tag);
 }
@@ -10,11 +12,15 @@ Tag tag_info(Database* db, Get_tag query) {
 	return get_tag(db, query.tag_name);
 }
 
+void delete_tag(Database* db, Delete_tag query) {
+	drop_tag(db, query.tag_name);
+}
+
 void create_node(Database* db, Create_node query) {
 	return insert_node(db, query.node);
 }
 
-Array_node nodes(Database* db, Get_nodes query) {
+Array_node nodes(Database* db, Select_nodes query) {
 	Array_node nodes_for_tag = get_nodes(db, query.tag_name);
 	Array_node result = { 0, (Node*) malloc(sizeof(Node) * nodes_for_tag.size) };
 
@@ -45,8 +51,17 @@ Array_node nodes(Database* db, Get_nodes query) {
 
 	return result;
 }
-// void delete_node(Delete_nodes query);
-// void update_nodes(Update_nodes query);
+
+void delete_nodes(Database* db, Select_nodes query) {
+	Array_node getted_nodes = nodes(db, query);
+	for (int i = 0; i < getted_nodes.size; i++) {
+		drop_node(db, getted_nodes.values[i].tag, getted_nodes.values[i].id);
+	}
+}
+
+void change_node(Database* db, Change_node query) {
+	update_node(db, query.changed_node);
+}
 
 // void insert_edge(Insert_edge query);
 // Edge* edges(Get_edges query);

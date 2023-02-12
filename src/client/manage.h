@@ -9,10 +9,10 @@ Tag tag_info(Database* db, Get_tag query);
 void create_tag(Database* db, Create_tag query);
 void delete_tag(Database* db, Delete_tag query);
 
- Array_node nodes(Database* db, Get_nodes query);
+ Array_node nodes(Database* db, Select_nodes query);
  void create_node(Database* db, Create_node query);
- void delete_node(Database* db, Delete_nodes query);
- void update_nodes(Database* db, Update_nodes query);
+ void delete_nodes(Database* db, Select_nodes query);
+ void change_node(Database* db, Change_node query);
 
 // void insert_edge(Insert_edge query);
 // Edge* edges(Get_edges query);

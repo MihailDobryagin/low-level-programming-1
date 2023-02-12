@@ -52,12 +52,12 @@ typedef struct {
 } Entity;
 
 typedef struct {
+	Entity_type type;
 	union {
 		Tag tag;
 		Node node;
 		Edge edge;
 	};
-	Entity_type type;
 } Data_to_add;
 
 typedef enum {

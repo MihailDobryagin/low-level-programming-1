@@ -117,7 +117,7 @@ Array_node get_nodes(Database* db, char* tag_name) {
 
 void insert_node(Database* db, Node node) {
 	Data_to_add data = {
-		.node= node,
+		.node = node,
 		.type = NODE_ENTITY
 	};
 
@@ -141,6 +141,31 @@ void drop_node(Database* db, char* tag_name, Field id) {
 			if (strcmp(nodes[i].tag, tag_name) == 0 && compare_fields(id, nodes[i].id)) {
 				uint32_t block_id = selected->block_ids[0];
 				delete_entitites(db->storage, 1, &block_id);
+				free(selected);
+				return;
+			}
+		}
+	}
+}
+
+void update_node(Database* db, Node node) {
+	int idx_delta = 100;
+	int cur_idx = 0;
+
+	Getted_entities* selected = NULL;
+	while (selected == NULL) {
+		selected = get_entities(db->storage, ALL, NODE_ENTITY, cur_idx, idx_delta);
+		Node* nodes = (Node*)selected->entities;
+		if (selected->size == 0) {
+			printf("No any nodes were found");
+			assert(0);
+		}
+
+		for (uint32_t i = 0; i < selected->size; i++) {
+			if (strcmp(nodes[i].tag, node.tag) == 0 && compare_fields(node.id, nodes[i].id)) {
+				uint32_t block_id = selected->block_ids[0];
+				Data_to_add data_to_update = { .node = node, .type = NODE_ENTITY };
+				update_entities(db->storage, 1, &block_id, &data_to_update);
 				free(selected);
 				return;
 			}

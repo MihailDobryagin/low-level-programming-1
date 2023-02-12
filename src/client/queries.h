@@ -56,16 +56,23 @@ typedef struct {
 
 typedef struct {
 	Node_selection_mode selection_mode;
+	char* tag_name;
 	union {
-		Field* ids;
+		struct {
+			uint32_t target_ids_size;
+			Field* ids;
+		};
 		bool (*predicate)(Node);
 		struct {
 			bool (*related_node_predicate)(Node);
 			char* edge_tag;
 		} relation;
 	};
-	Property* new_properties;
-} Update_nodes;
+} Select_nodes;
+
+typedef struct {
+	Node changed_node;
+} Change_node;
 
 typedef struct {
 	Edge edge;

@@ -72,4 +72,6 @@ typedef struct {
 	Edge* values;
 } Array_edge;
 
+bool compare_fields(Field f1, Field f2);
+
 #endif // !entities_h
