@@ -12,10 +12,11 @@
 static void _clear_db_file();
 static void _test_CRUD_for_nodes();
 static void _test_CRUD_for_edges();
+static void _test_expand_and_collapse();
 
 int main(int argc, char** argv) {
 	
-	_test_CRUD_for_edges();
+	_test_expand_and_collapse();
 
 	return 0;
 }
@@ -163,6 +164,31 @@ static void _test_CRUD_for_edges() {
 	make_quarrel(db, actual_friendship_edge);
 	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
 	actual_friendship_edge = getted_edges.values[0];
+}
+
+static void _test_expand_and_collapse() {
+	_clear_db_file();
+	Database* db = init_database("db_file.txt");
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = "a",
+		.properties_size = 2,
+		.property_types = (Type[2]) {STRING, BYTE},
+		.property_names = (char* [2]) { "name", "age" }
+	};
+
+	for (int i = 0; i < 9; i++) {
+		create_tag(db, (Create_tag) { .tag = tag });
+		tag.name = (char[2]){ 'a' + i + 1, '\0'};
+	}
+
+	// EXPAND_STORAGE
+	create_tag(db, (Create_tag) { .tag = tag });
+	tag.name = (char[2]){ 'a' + 11, '\0' };
+	// EXPAND_STORAGE
+
+
+
 }
 
 static void _clear_db_file() {

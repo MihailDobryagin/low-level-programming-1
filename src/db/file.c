@@ -35,6 +35,8 @@ static void _collapse_storage(Storage* storage);
 static uint32_t _generate_block_unique_id();
 static bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids);
 
+static const double LIMIT_COEF_OF_DRAFT_BLOCKS = 0.2;
+
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
 	Metadata* metadata_buff = (Metadata*)malloc(sizeof(Metadata)); // FREE
@@ -173,6 +175,8 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 			}
 		}
 	}
+
+	_collapse_storage(storage);
 }
 
 void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data_to_add* modified_entities) {
@@ -236,7 +240,7 @@ static void _expand_storage(Storage* storage) {
 	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
 	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
 	
-	uint32_t target_last_header_addr = metadata->headers_offset + metadata->blocks_size * new_capacity; // excluding
+	const uint32_t after_target_last_header_addr = metadata->headers_offset + sizeof(Header_block) * new_capacity; // excluding
 	
 	uint32_t count_of_matching_blocks = 0;
 	uint32_t count_of_matching_blocks_cap = 5; // capacity
@@ -246,7 +250,7 @@ static void _expand_storage(Storage* storage) {
 	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));
 	for(uint32_t i = 0; i < metadata->blocks_size; i++) {
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
-		if(header_buff->data_offset < target_last_header_addr) {
+		if(header_buff->data_offset < after_target_last_header_addr) {
 			if(count_of_matching_blocks == count_of_matching_blocks_cap) {
 				count_of_matching_blocks_cap += count_of_matching_blocks_cap / 2; 
 				blocks_to_move = (uint32_t*)realloc(blocks_to_move, sizeof(uint32_t) * count_of_matching_blocks_cap);
@@ -254,37 +258,47 @@ static void _expand_storage(Storage* storage) {
 			blocks_to_move[count_of_matching_blocks++] = i;
 		}
 	}
-	
+
+	const uint32_t new_data_offset = after_target_last_header_addr;
+	uint32_t new_current_data_offset = new_data_offset;
 	for(int i = 0; i < count_of_matching_blocks; i++) {
-		fseek(storage->file, metadata->headers_offset, SEEK_SET);
+		const uint32_t index_of_block_to_move = blocks_to_move[i];
+		const uint32_t header_addr = metadata->headers_offset + sizeof(Header_block) * index_of_block_to_move;
+		fseek(storage->file, header_addr, SEEK_SET);
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
 		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
 		fseek(storage->file, header_buff->data_offset, SEEK_SET);
 		fread(data, header_buff->data_size, 1, storage->file);
-		fseek(storage->file, metadata->data_offset + metadata->data_size, SEEK_SET);
+		const uint32_t new_data_addr = new_current_data_offset + metadata->data_size;
+		fseek(storage->file, new_data_addr, SEEK_SET);
 		fwrite(data, header_buff->data_size, 1, storage->file);
-		metadata->data_size += header_buff->data_size;
+		header_buff->data_offset = new_data_addr;
+		fseek(storage->file, header_addr, SEEK_SET);
+		fwrite(header_buff, sizeof(Header_block), 1, storage->file);
+		new_current_data_offset += header_buff->data_size;
 	}
 	
+	metadata->blocks_capacity = new_capacity;
+	metadata->data_offset = new_data_offset;
 	_update_metadata(storage);
 }
 
-static void _collapse_storage(Storage* storage) {
+static void _force_collapse(Storage* storage) {
 	uint32_t left_idx = 0;
 	uint32_t right_idx = storage->metadata.draft_blocks_size - 1;
 	uint32_t headers_offset = storage->metadata.headers_offset;
-	
+
 	// uint32_t* newIndexesOfReplacedHeaders = (uint32_t*)malloc()
 	fseek(storage->file, headers_offset, SEEK_SET);
 	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block)); // FREE
-	
-	for(;left_idx < right_idx; left_idx++) {
+
+	for (; left_idx < right_idx; left_idx++) {
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
-		if(header_buff->status == DRAFT) {
-			for(;left_idx < right_idx; right_idx--) {
+		if (header_buff->status == DRAFT) {
+			for (; left_idx < right_idx; right_idx--) {
 				fseek(storage->file, headers_offset + sizeof(Header_block) * right_idx, SEEK_SET);
 				fread(header_buff, sizeof(Header_block), 1, storage->file);
-				if(header_buff->status == WORKING) {
+				if (header_buff->status == WORKING) {
 					fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET); // mb, set EMPTY status?
 					fwrite(header_buff, sizeof(Header_block), 1, storage->file);
 					right_idx--;
@@ -293,19 +307,24 @@ static void _collapse_storage(Storage* storage) {
 			}
 		}
 	}
-	
+
 	uint32_t new_blocks_size = left_idx;
-	
+
 	// when left_idx == right_idx it can point to one header, and we don't know its status
 	fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET);
 	fread(header_buff, sizeof(Header_block), 1, storage->file);
-	if(header_buff->status == WORKING) new_blocks_size++;
+	if (header_buff->status == WORKING) new_blocks_size++;
 	free(header_buff);
-	
+
 	storage->metadata.blocks_size = new_blocks_size;
 	storage->metadata.draft_blocks_size = 0;
-	
+
 	_update_metadata(storage);
+}
+
+static void _collapse_storage(Storage* storage) {
+	if (storage->metadata.blocks_size * LIMIT_COEF_OF_DRAFT_BLOCKS > storage->metadata.draft_blocks_size) return;
+	_force_collapse(storage);
 }
 
 static Serialized _serialize_tag(Tag* tag) {
