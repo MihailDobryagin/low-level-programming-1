@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
+#include <stdlib.h>
 
 static uint32_t _calc_field_size(Field field);
 static uint32_t _calc_property_size(Property field);
@@ -35,7 +36,7 @@ static void _collapse_storage(Storage* storage);
 static uint32_t _generate_block_unique_id();
 static bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids);
 
-static const double LIMIT_COEF_OF_DRAFT_BLOCKS = 0.2;
+static const double LIMIT_COEF_OF_DRAFT_BLOCKS = 0.5;
 
 Storage* init_storage(char* file_name) {
 	FILE* file = fopen(file_name, "rb+");
@@ -237,9 +238,8 @@ static void _update_metadata(Storage* storage) {
 static void _expand_storage(Storage* storage) {
 	Metadata* metadata = &(storage->metadata);
 	
-	uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
-	uint32_t new_capacity = metadata->blocks_capacity + capacity_diff;
-	
+	const uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
+	const uint32_t new_capacity = metadata->blocks_capacity + capacity_diff; 
 	const uint32_t after_target_last_header_addr = metadata->headers_offset + sizeof(Header_block) * new_capacity; // excluding
 	
 	uint32_t count_of_matching_blocks = 0;
@@ -260,16 +260,18 @@ static void _expand_storage(Storage* storage) {
 	}
 
 	const uint32_t new_data_offset = after_target_last_header_addr;
-	uint32_t new_current_data_offset = new_data_offset;
-	for(int i = 0; i < count_of_matching_blocks; i++) {
+	uint32_t new_current_data_offset = metadata->data_offset + metadata->data_size;
+	uint32_t size_of_moved_blocks = 0;
+	for(uint32_t i = 0; i < count_of_matching_blocks; i++) {
 		const uint32_t index_of_block_to_move = blocks_to_move[i];
 		const uint32_t header_addr = metadata->headers_offset + sizeof(Header_block) * index_of_block_to_move;
 		fseek(storage->file, header_addr, SEEK_SET);
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
+		size_of_moved_blocks += header_buff->data_size;
 		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
 		fseek(storage->file, header_buff->data_offset, SEEK_SET);
 		fread(data, header_buff->data_size, 1, storage->file);
-		const uint32_t new_data_addr = new_current_data_offset + metadata->data_size;
+		const uint32_t new_data_addr = new_current_data_offset;
 		fseek(storage->file, new_data_addr, SEEK_SET);
 		fwrite(data, header_buff->data_size, 1, storage->file);
 		header_buff->data_offset = new_data_addr;
@@ -277,47 +279,79 @@ static void _expand_storage(Storage* storage) {
 		fwrite(header_buff, sizeof(Header_block), 1, storage->file);
 		new_current_data_offset += header_buff->data_size;
 	}
-	
+	const uint32_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_blocks;
 	metadata->blocks_capacity = new_capacity;
 	metadata->data_offset = new_data_offset;
+	metadata->data_size = new_data_size;
 	_update_metadata(storage);
 }
 
+static struct Header_for_sorting_by_off {
+	uint32_t idx;
+	uint32_t data_offset;
+};
+
+static int comp_for_sorting_headers(const void* p1, const void* p2) {
+	struct Header_for_sorting_by_off* h1 = (struct Header_for_sorting_by_off*)p1;
+	struct Header_for_sorting_by_off* h2 = (struct Header_for_sorting_by_off*)p2;
+
+	if (h1->data_offset < h2->data_offset) return -1;
+	return 1;
+}
+
 static void _force_collapse(Storage* storage) {
-	uint32_t left_idx = 0;
-	uint32_t right_idx = storage->metadata.draft_blocks_size - 1;
-	uint32_t headers_offset = storage->metadata.headers_offset;
-
-	// uint32_t* newIndexesOfReplacedHeaders = (uint32_t*)malloc()
-	fseek(storage->file, headers_offset, SEEK_SET);
+	if (storage->metadata.draft_blocks_size == 0) return;
+	Metadata* const metadata = &storage->metadata;
+	const uint32_t new_capacity = metadata->blocks_size;
+	const uint32_t working_blocks_amount = metadata->blocks_size - metadata->draft_blocks_size;
+	const uint32_t new_data_offset = metadata->headers_offset + sizeof(Header_block) * new_capacity;
+	// Идём слева и ищем первый попавшийся draft, потом идём справа и ищем первый working. Вставляем w в d
+	uint32_t right_idx = metadata->blocks_size; // out of bound
 	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block)); // FREE
+	uint32_t new_data_size = 0;
+	struct Header_for_sorting_by_off* working_data_offs = (struct Header_for_sorting_by_off*)malloc(sizeof(struct Header_for_sorting_by_off) * working_blocks_amount);
+	uint32_t* working_data_sizes = (uint32_t*)malloc(sizeof(Header_block) * working_blocks_amount);
 
-	for (; left_idx < right_idx; left_idx++) {
+	for (uint32_t working_blocks_at_beginning = 0; working_blocks_at_beginning < working_blocks_amount; working_blocks_at_beginning++) {
+		fseek(storage->file, metadata->headers_offset + sizeof(Header_block) * working_blocks_at_beginning, SEEK_SET);
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
 		if (header_buff->status == DRAFT) {
-			for (; left_idx < right_idx; right_idx--) {
-				fseek(storage->file, headers_offset + sizeof(Header_block) * right_idx, SEEK_SET);
+			do {
+				fseek(storage->file, metadata->headers_offset + sizeof(Header_block) * (--right_idx), SEEK_SET);
 				fread(header_buff, sizeof(Header_block), 1, storage->file);
-				if (header_buff->status == WORKING) {
-					fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET); // mb, set EMPTY status?
-					fwrite(header_buff, sizeof(Header_block), 1, storage->file);
-					right_idx--;
-					break;
-				}
-			}
+			} while (header_buff->status != WORKING);
+			fseek(storage->file, metadata->headers_offset + sizeof(Header_block) * working_blocks_at_beginning, SEEK_SET);
+			fwrite(header_buff, sizeof(Header_block), 1, storage->file);
 		}
+		working_data_offs[working_blocks_at_beginning].idx = working_blocks_at_beginning;
+		working_data_offs[working_blocks_at_beginning].data_offset = header_buff->data_offset;
+		working_data_sizes[working_blocks_at_beginning] = header_buff->data_size;
+		new_data_size += header_buff->data_size;
 	}
 
-	uint32_t new_blocks_size = left_idx;
-
-	// when left_idx == right_idx it can point to one header, and we don't know its status
-	fseek(storage->file, headers_offset + sizeof(Header_block) * left_idx, SEEK_SET);
-	fread(header_buff, sizeof(Header_block), 1, storage->file);
-	if (header_buff->status == WORKING) new_blocks_size++;
-	free(header_buff);
-
-	storage->metadata.blocks_size = new_blocks_size;
-	storage->metadata.draft_blocks_size = 0;
+	// move data
+	qsort(working_data_offs, working_blocks_amount, sizeof(struct Header_for_sorting_by_off), comp_for_sorting_headers);
+	uint32_t current_block_data_offset = new_data_offset;
+	for (uint32_t i = 0; i < working_blocks_amount; current_block_data_offset += working_data_offs[i].data_offset, i++) {
+		const uint32_t data_offset = working_data_offs[i].data_offset;
+		const uint32_t idx = working_data_offs[i].idx;
+		fseek(storage->file, data_offset, SEEK_SET);
+		uint8_t* data = malloc(working_data_sizes[idx]);
+		fread(data, working_data_sizes[idx], 1, storage->file);
+		fseek(storage->file, current_block_data_offset, SEEK_SET);
+		fwrite(data, working_data_sizes[idx], 1, storage->file);
+		Header_block stub_hb = {};
+		// rewrite data_offset
+		const uint32_t header_off = metadata->headers_offset + sizeof(Header_block) * idx;
+		const uint32_t field_offset = (uint32_t)&stub_hb - (uint32_t)&stub_hb.data_offset;
+		fseek(storage->file, header_off + field_offset, SEEK_SET);
+		fwrite(&current_block_data_offset, sizeof(uint32_t), 1, storage->file);
+	}
+	metadata->blocks_size = working_blocks_amount;
+	metadata->draft_blocks_size= 0;
+	metadata->blocks_capacity = new_capacity;
+	metadata->data_offset = new_data_offset;
+	metadata->data_size = new_data_size;
 
 	_update_metadata(storage);
 }

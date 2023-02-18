@@ -186,9 +186,21 @@ static void _test_expand_and_collapse() {
 	create_tag(db, (Create_tag) { .tag = tag });
 	tag.name = (char[2]){ 'a' + 11, '\0' };
 	// EXPAND_STORAGE
+	// Now capacity must be 12 and size -- 10
+	print_tag(tag_info(db, (Get_tag) { .tag_name = "a" }));
+	print_tag(tag_info(db, (Get_tag) { .tag_name = "f" }));
 
+	// Delete 5 blocks
+	delete_tag(db, (Delete_tag) { .tag_name = "a" });
+	delete_tag(db, (Delete_tag) { .tag_name = "b" });
+	delete_tag(db, (Delete_tag) { .tag_name = "c" });
+	delete_tag(db, (Delete_tag) { .tag_name = "d" });
+	delete_tag(db, (Delete_tag) { .tag_name = "e" });
 
-
+	//print_tag(tag_info(db, (Get_tag) { .tag_name = "a" }));
+	//print_tag(tag_info(db, (Get_tag) { .tag_name = "e" }));
+	print_tag(tag_info(db, (Get_tag) { .tag_name = "f" }));
+	print_tag(tag_info(db, (Get_tag) { .tag_name = "g" }));
 }
 
 static void _clear_db_file() {
