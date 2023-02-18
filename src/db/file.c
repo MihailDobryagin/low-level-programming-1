@@ -343,7 +343,7 @@ static void _force_collapse(Storage* storage) {
 		Header_block stub_hb = {};
 		// rewrite data_offset
 		const uint32_t header_off = metadata->headers_offset + sizeof(Header_block) * idx;
-		const uint32_t field_offset = (uint32_t)&stub_hb - (uint32_t)&stub_hb.data_offset;
+		const uint32_t field_offset = (uint32_t)&stub_hb.data_offset - (uint32_t)&stub_hb;
 		fseek(storage->file, header_off + field_offset, SEEK_SET);
 		fwrite(&current_block_data_offset, sizeof(uint32_t), 1, storage->file);
 	}
@@ -354,6 +354,10 @@ static void _force_collapse(Storage* storage) {
 	metadata->data_size = new_data_size;
 
 	_update_metadata(storage);
+
+	int fd = fileno(storage->file);
+	const uint32_t new_size_of_file = metadata->data_offset + metadata->data_size;
+	ftruncate(fd, new_size_of_file);
 }
 
 static void _collapse_storage(Storage* storage) {
