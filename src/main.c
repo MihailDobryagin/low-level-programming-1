@@ -4,19 +4,23 @@
 #include "db/db.h"
 #include "client/manage.h"
 #include "utils/std_out.h"
+#include "utils/strings.h"
 #include "test_utils/test_objects_creation.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
+#include <inttypes.h>
 
+static int64_t _calc_time_diff(struct timespec start, struct timespec finish);
 static void _clear_db_file();
 static void _test_CRUD_for_nodes();
 static void _test_CRUD_for_edges();
 static void _test_expand_and_collapse();
+static void _test_insert_metrics();
 
 int main(int argc, char** argv) {
-	
-	_test_expand_and_collapse();
+	_test_insert_metrics();
 
 	return 0;
 }
@@ -215,6 +219,54 @@ static void _test_expand_and_collapse() {
 	print_tag(tag_info(db, (Get_tag) { .tag_name = "i" }));
 
 
+}
+
+static void _test_insert_metrics() {
+	FILE* insert_metrics_file = fopen("insert_metrics.txt", "w+");
+	_clear_db_file();
+	Database* db = init_database("db_file.txt");
+	char* long_long_property_of_tag_name = (char*)malloc((1 << (20)) + 1); // 20 Mb
+	for (uint32_t i = 0; i < (1 << 20); i++) {
+		long_long_property_of_tag_name[i] = 'a' + (i % 26);
+	}
+	long_long_property_of_tag_name[(1 << 20) + 1] = '\0';
+
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = "", // INIT LATER
+		.properties_size = 1,
+		.property_types = (Type[1]) {STRING},
+		.property_names = (char* [1]) { long_long_property_of_tag_name}
+	};
+
+	for (size_t i = 0; i < 10000; i++) {
+		if (i % 1000 == 0) {
+			printf("%d\n", i);
+		}
+		char* tag_name = num_as_str(i);
+		tag.name = tag_name;
+		const struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
+		create_tag(db, (Create_tag) { .tag = tag });
+		const struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
+		const int64_t time_diff = _calc_time_diff(start_time, finish_time);
+		if (time_diff < 0) {
+			printf("FINISH TIME < START_TIME");
+			return;
+		}
+		char* time_diff_as_str = num_as_str(time_diff);
+		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, insert_metrics_file);
+		fwrite("\n", 1, 1, insert_metrics_file);
+		free(tag_name);
+	}
+
+	fclose(insert_metrics_file);
+}
+
+static int64_t _calc_time_diff(struct timespec start, struct timespec finish) {
+	int64_t seconds_diff = finish.tv_sec - start.tv_sec;
+	int64_t nanoseconds_diff = finish.tv_nsec - start.tv_nsec;
+	int64_t mks_diff = seconds_diff * 1000000 + nanoseconds_diff / 1000;
+	return mks_diff;
 }
 
 static void _clear_db_file() {
