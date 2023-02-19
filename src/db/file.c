@@ -332,7 +332,7 @@ static void _force_collapse(Storage* storage) {
 	// move data
 	qsort(working_data_offs, working_blocks_amount, sizeof(struct Header_for_sorting_by_off), comp_for_sorting_headers);
 	uint32_t current_block_data_offset = new_data_offset;
-	for (uint32_t i = 0; i < working_blocks_amount; current_block_data_offset += working_data_offs[i].data_offset, i++) {
+	for (uint32_t i = 0; i < working_blocks_amount; current_block_data_offset += working_data_sizes[working_data_offs[i].idx], i++) {
 		const uint32_t data_offset = working_data_offs[i].data_offset;
 		const uint32_t idx = working_data_offs[i].idx;
 		fseek(storage->file, data_offset, SEEK_SET);

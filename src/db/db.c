@@ -67,7 +67,7 @@ void drop_tag(Database* db, char* tag_name) {
 		
 		for(uint32_t i = 0; i < selected->size; i++) {
 			if(strcmp(tags[i].name, tag_name) == 0) {
-				uint32_t block_id = selected->block_ids[0];
+				uint32_t block_id = selected->block_ids[i];
 				delete_entitites(db->storage, 1, &block_id);
 				free(selected);
 				return;

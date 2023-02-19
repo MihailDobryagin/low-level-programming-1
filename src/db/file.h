@@ -10,7 +10,7 @@ typedef struct {
 	uint32_t blocks_capacity;
 	uint32_t data_size; // working+draft
 	uint32_t headers_offset;
-	uint64_t data_offset;
+	uint32_t data_offset;
 } Metadata;
 
 typedef struct {
@@ -35,8 +35,8 @@ typedef struct {
 	uint32_t block_unique_id;
 	Entity_type type;
 	Block_status status;
-	uint64_t data_offset;
-	uint64_t data_size;
+	uint32_t data_offset;
+	uint32_t data_size;
 } Header_block;
 
 typedef struct {
