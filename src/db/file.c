@@ -1,5 +1,3 @@
-// TODO NOT TESTED
-// TODO Make different user-optimizations
 #include "file.h"
 #include <stdlib.h>
 #include <assert.h>
@@ -15,18 +13,18 @@ static void _put_property(uint8_t* buff, Property prop);
 static Field _scan_field(uint8_t** stream);
 static Property _scan_property(uint8_t** stream);
 typedef struct {
-	uint32_t size;
+	uint64_t size;
 	uint8_t* data;
 } Serialized;
 static Serialized _serialize_tag(Tag* tag);
 static Serialized _serialize_node(Node* node);
 static Serialized _serialize_edge(Edge* edge);
-static Tag _parse_tag(uint32_t data_size, uint8_t* data);
-static Node _parse_node(uint32_t data_size, uint8_t* data);
-static Edge _parse_edge(uint32_t data_size, uint8_t* data);
-static Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
-static Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
-static Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data);
+static Tag _parse_tag(uint64_t data_size, uint8_t* data);
+static Node _parse_node(uint64_t data_size, uint8_t* data);
+static Edge _parse_edge(uint64_t data_size, uint8_t* data);
+static Tag* _parse_tags(uint32_t blocks_number, uint64_t* sizes, uint8_t* data);
+static Node* _parse_nodes(uint32_t blocks_number, uint64_t* sizes, uint8_t* data);
+static Edge* _parse_edges(uint32_t blocks_number, uint64_t* sizes, uint8_t* data);
 static void _store_entity(Storage* storage, Entity_type type, Serialized* serialized);
 static void _update_entity(Storage* storage, uint32_t header_number, Header_block header, Serialized* serialized);
 static void _delete_entity(Storage* storage, uint32_t header_number);
@@ -47,7 +45,7 @@ Storage* init_storage(char* file_name) {
 	storage->file = file;
 	if(readen_for_metadata == 0) {
 		printf("Metadata was not found\n");
-		uint32_t init_capacity = 10;
+		const uint32_t init_capacity = 10;
 		Metadata metadata = {
 			.blocks_size = 0,
 			.draft_blocks_size = 0,
@@ -106,13 +104,13 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		
 		uint32_t passed_blocks = 0;
 		uint32_t matched_blocks_number = 0;
-		uint32_t* matched_blocks_sizes = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
+		uint64_t* matched_blocks_sizes = (uint64_t*)malloc(sizeof(uint64_t) * number_of_blocks);
 		uint32_t* matched_blocks = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks); // indexes
-		uint32_t matched_data_size = 0;
+		uint64_t matched_data_size = 0;
 		uint32_t* block_ids = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
 		
 		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
-			Header_block header = headers_buff[i];
+			const Header_block header = headers_buff[i];
 			if(header.status != WORKING || header.type != type) continue;
 			if(passed_blocks++ < start_index) continue;
 			
@@ -129,7 +127,7 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		uint8_t* cur_data_buff_addr = data_buff;
 		
 		for(uint32_t i = 0; i < matched_blocks_number; i++) {
-			Header_block header = headers_buff[matched_blocks[i]];
+			const Header_block header = headers_buff[matched_blocks[i]];
 			fseek(file, header.data_offset, SEEK_SET);
 			fread(cur_data_buff_addr, header.data_size, 1, file);
 			cur_data_buff_addr += header.data_size;
@@ -157,9 +155,9 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 }
 
 void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* entity_ids) {
-	uint32_t blocks_size = storage->metadata.blocks_size;
-	uint32_t amount_of_deleted = 0;
+	const uint32_t blocks_size = storage->metadata.blocks_size;
 	const uint32_t default_headers_buff_size = 20;
+	uint32_t amount_of_deleted = 0;
 	uint32_t headers_buff_size = default_headers_buff_size;
 	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block)*headers_buff_size);
 	
@@ -169,7 +167,7 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 		fread(headers_buff, sizeof(Header_block), headers_buff_size, storage->file);
 		
 		for(uint32_t buff_idx = 0; buff_idx < headers_buff_size && amount_of_deleted != to_delete_amount; buff_idx++) {
-			Header_block* header = headers_buff + buff_idx;
+			const Header_block* header = headers_buff + buff_idx;
 			if(_is_in_entity_ids(header->block_unique_id, to_delete_amount, entity_ids)) {
 				_delete_entity(storage, i * default_headers_buff_size + buff_idx);
 				amount_of_deleted++;
@@ -181,10 +179,10 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 }
 
 void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data_to_add* modified_entities) {
-	uint32_t blocks_size = storage->metadata.blocks_size;
-	uint32_t amount_of_updated= 0;
-	
+	const uint32_t blocks_size = storage->metadata.blocks_size;
 	const uint32_t default_headers_buff_size = 20;
+	uint32_t amount_of_updated = 0;
+	
 	uint32_t headers_buff_size = default_headers_buff_size;
 
 	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * headers_buff_size);
@@ -223,7 +221,7 @@ static void _update_entity(Storage* storage, uint32_t header_number, Header_bloc
 	
 	storage->metadata.data_size += serialized->size - header.data_size;
 	header.data_size = serialized->size;
-	fseek(storage->file, storage->metadata.headers_offset + sizeof(Header_block)*header_number, SEEK_SET);
+	fseek(storage->file, storage->metadata.headers_offset + sizeof(Header_block) * header_number, SEEK_SET);
 	fwrite(&header, sizeof(Header_block), 1, storage->file);
 	fseek(storage->file, header.data_offset, SEEK_SET);
 	fwrite(serialized->data, sizeof(uint8_t), serialized->size, storage->file);
@@ -240,7 +238,7 @@ static void _expand_storage(Storage* storage) {
 	
 	const uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
 	const uint32_t new_capacity = metadata->blocks_capacity + capacity_diff; 
-	const uint32_t after_target_last_header_addr = metadata->headers_offset + sizeof(Header_block) * new_capacity; // excluding
+	const uint64_t after_target_last_header_addr = metadata->headers_offset + sizeof(Header_block) * new_capacity; // excluding
 	
 	uint32_t count_of_matching_blocks = 0;
 	uint32_t count_of_matching_blocks_cap = 5; // capacity
@@ -259,9 +257,9 @@ static void _expand_storage(Storage* storage) {
 		}
 	}
 
-	const uint32_t new_data_offset = after_target_last_header_addr;
-	uint32_t new_current_data_offset = metadata->data_offset + metadata->data_size;
-	uint32_t size_of_moved_blocks = 0;
+	const uint64_t new_data_offset = after_target_last_header_addr;
+	uint64_t new_current_data_offset = metadata->data_offset + metadata->data_size;
+	uint64_t size_of_moved_blocks = 0;
 	for(uint32_t i = 0; i < count_of_matching_blocks; i++) {
 		const uint32_t index_of_block_to_move = blocks_to_move[i];
 		const uint32_t header_addr = metadata->headers_offset + sizeof(Header_block) * index_of_block_to_move;
@@ -271,7 +269,7 @@ static void _expand_storage(Storage* storage) {
 		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
 		fseek(storage->file, header_buff->data_offset, SEEK_SET);
 		fread(data, header_buff->data_size, 1, storage->file);
-		const uint32_t new_data_addr = new_current_data_offset;
+		const uint64_t new_data_addr = new_current_data_offset;
 		fseek(storage->file, new_data_addr, SEEK_SET);
 		fwrite(data, header_buff->data_size, 1, storage->file);
 		header_buff->data_offset = new_data_addr;
@@ -279,7 +277,7 @@ static void _expand_storage(Storage* storage) {
 		fwrite(header_buff, sizeof(Header_block), 1, storage->file);
 		new_current_data_offset += header_buff->data_size;
 	}
-	const uint32_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_blocks;
+	const uint64_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_blocks;
 	metadata->blocks_capacity = new_capacity;
 	metadata->data_offset = new_data_offset;
 	metadata->data_size = new_data_size;
@@ -288,7 +286,7 @@ static void _expand_storage(Storage* storage) {
 
 static struct Header_for_sorting_by_off {
 	uint32_t idx;
-	uint32_t data_offset;
+	uint64_t data_offset;
 };
 
 static int comp_for_sorting_headers(const void* p1, const void* p2) {
@@ -296,7 +294,8 @@ static int comp_for_sorting_headers(const void* p1, const void* p2) {
 	struct Header_for_sorting_by_off* h2 = (struct Header_for_sorting_by_off*)p2;
 
 	if (h1->data_offset < h2->data_offset) return -1;
-	return 1;
+	if (h1->data_offset > h2->data_offset) return 1;
+	assert(0);
 }
 
 static void _force_collapse(Storage* storage) {
@@ -304,13 +303,13 @@ static void _force_collapse(Storage* storage) {
 	Metadata* const metadata = &storage->metadata;
 	const uint32_t new_capacity = metadata->blocks_size;
 	const uint32_t working_blocks_amount = metadata->blocks_size - metadata->draft_blocks_size;
-	const uint32_t new_data_offset = metadata->headers_offset + sizeof(Header_block) * new_capacity;
+	const uint64_t new_data_offset = metadata->headers_offset + sizeof(Header_block) * new_capacity;
 	// Идём слева и ищем первый попавшийся draft, потом идём справа и ищем первый working. Вставляем w в d
 	uint32_t right_idx = metadata->blocks_size; // out of bound
 	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block)); // FREE
-	uint32_t new_data_size = 0;
+	uint64_t new_data_size = 0;
 	struct Header_for_sorting_by_off* working_data_offs = (struct Header_for_sorting_by_off*)malloc(sizeof(struct Header_for_sorting_by_off) * working_blocks_amount);
-	uint32_t* working_data_sizes = (uint32_t*)malloc(sizeof(Header_block) * working_blocks_amount);
+	uint64_t* working_data_sizes = (uint64_t*)malloc(sizeof(uint64_t) * working_blocks_amount);
 
 	for (uint32_t working_blocks_at_beginning = 0; working_blocks_at_beginning < working_blocks_amount; working_blocks_at_beginning++) {
 		fseek(storage->file, metadata->headers_offset + sizeof(Header_block) * working_blocks_at_beginning, SEEK_SET);
@@ -331,9 +330,9 @@ static void _force_collapse(Storage* storage) {
 
 	// move data
 	qsort(working_data_offs, working_blocks_amount, sizeof(struct Header_for_sorting_by_off), comp_for_sorting_headers);
-	uint32_t current_block_data_offset = new_data_offset;
+	uint64_t current_block_data_offset = new_data_offset;
 	for (uint32_t i = 0; i < working_blocks_amount; current_block_data_offset += working_data_sizes[working_data_offs[i].idx], i++) {
-		const uint32_t data_offset = working_data_offs[i].data_offset;
+		const uint64_t data_offset = working_data_offs[i].data_offset;
 		const uint32_t idx = working_data_offs[i].idx;
 		fseek(storage->file, data_offset, SEEK_SET);
 		uint8_t* data = malloc(working_data_sizes[idx]);
@@ -345,7 +344,7 @@ static void _force_collapse(Storage* storage) {
 		const uint32_t header_off = metadata->headers_offset + sizeof(Header_block) * idx;
 		const uint32_t field_offset = (uint32_t)&stub_hb.data_offset - (uint32_t)&stub_hb;
 		fseek(storage->file, header_off + field_offset, SEEK_SET);
-		fwrite(&current_block_data_offset, sizeof(uint32_t), 1, storage->file);
+		fwrite(&current_block_data_offset, sizeof(uint64_t), 1, storage->file);
 	}
 	metadata->blocks_size = working_blocks_amount;
 	metadata->draft_blocks_size= 0;
@@ -356,7 +355,7 @@ static void _force_collapse(Storage* storage) {
 	_update_metadata(storage);
 
 	int fd = fileno(storage->file);
-	const uint32_t new_size_of_file = metadata->data_offset + metadata->data_size;
+	const uint64_t new_size_of_file = metadata->data_offset + metadata->data_size;
 	ftruncate(fd, new_size_of_file);
 }
 
@@ -583,7 +582,7 @@ static Property _scan_property(uint8_t** stream) {
 	return (Property){name, field};
 }
 
-static Tag _parse_tag(uint32_t data_size, uint8_t* data) {
+static Tag _parse_tag(uint64_t data_size, uint8_t* data) {
 	Tag_type type = *((Tag_type*)data);
 	data += sizeof(Tag_type);
 	
@@ -613,7 +612,7 @@ static Tag _parse_tag(uint32_t data_size, uint8_t* data) {
 	return (Tag) {type, name, properties_size, property_types, property_names};
 }
 
-static Node _parse_node(uint32_t data_size, uint8_t* data) {
+static Node _parse_node(uint64_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
@@ -633,7 +632,7 @@ static Node _parse_node(uint32_t data_size, uint8_t* data) {
 	return (Node) {tag_name, id, properties_size, properties};
 }
 
-static Edge _parse_edge(uint32_t data_size, uint8_t* data) {
+static Edge _parse_edge(uint64_t data_size, uint8_t* data) {
 	uint32_t tag_name_len = strlen((char*)data);
 	char* tag_name = (char*)malloc(tag_name_len);
 	strcpy(tag_name, (char*)data);
@@ -656,7 +655,7 @@ static Edge _parse_edge(uint32_t data_size, uint8_t* data) {
 	return (Edge) {tag_name, id, node1_id, node2_id, properties_size, properties};
 }
 
-static Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+static Tag* _parse_tags(uint32_t blocks_number, uint64_t* sizes, uint8_t* data) {
 	Tag* tags = (Tag*)malloc(sizeof(Tag) * blocks_number);
 	
 	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
@@ -666,7 +665,7 @@ static Tag* _parse_tags(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) 
 	return tags;
 }
 
-static Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+static Node* _parse_nodes(uint32_t blocks_number, uint64_t* sizes, uint8_t* data) {
 	Node* nodes = (Node*)malloc(sizeof(Node) * blocks_number);
 	
 	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
@@ -676,7 +675,7 @@ static Node* _parse_nodes(uint32_t blocks_number, uint32_t* sizes, uint8_t* data
 	return nodes;
 }
 
-static Edge* _parse_edges(uint32_t blocks_number, uint32_t* sizes, uint8_t* data) {
+static Edge* _parse_edges(uint32_t blocks_number, uint64_t* sizes, uint8_t* data) {
 	Edge* edges = (Edge*)malloc(sizeof(Edge) * blocks_number);
 	
 	for(uint32_t i = 0; i < blocks_number; data += sizes[i], i++) {
@@ -703,10 +702,10 @@ static void _delete_entity(Storage* storage, uint32_t header_number) {
 static void _store_entity(Storage* storage, Entity_type type, Serialized* serialized) {
 	FILE* file = storage->file;
 	Metadata* metadata = &storage->metadata;
-	uint32_t header_offset = metadata->headers_offset + sizeof(Header_block) * metadata->blocks_size;
-	uint32_t data_offset = metadata->data_offset + metadata->data_size;
-	uint32_t block_unique_id = _generate_block_unique_id();
-	Header_block header = {block_unique_id, type, WORKING, data_offset, serialized->size};
+	const uint32_t header_offset = metadata->headers_offset + sizeof(Header_block) * metadata->blocks_size;
+	const uint64_t data_offset = metadata->data_offset + metadata->data_size;
+	const uint32_t block_unique_id = _generate_block_unique_id();
+	const Header_block header = {block_unique_id, type, WORKING, data_offset, serialized->size};
 	fseek(file, header_offset, SEEK_SET);
 	fwrite(&header, sizeof(Header_block), 1, file);
 	
@@ -724,7 +723,6 @@ static uint32_t _generate_block_unique_id() {
 	return t.tv_nsec;
 }
 
-// TODO Make optimizations
 static bool _is_in_entity_ids(uint32_t id, uint32_t size, uint32_t* entity_ids) {
 	for(int32_t i = 0; i < size; i++) {
 		if(entity_ids[i] == id) return true;
