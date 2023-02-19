@@ -72,6 +72,9 @@ typedef struct {
 	Edge* values;
 } Array_edge;
 
+void free_tag_internal(Tag tag);
+void free_node_internal(Node node);
+void free_edge_internal(Edge edge);
 bool compare_fields(Field f1, Field f2);
 
 #endif // !entities_h

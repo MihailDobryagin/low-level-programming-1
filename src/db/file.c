@@ -91,7 +91,7 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	if(metadata->blocks_size == metadata->blocks_capacity) _expand_storage(storage);
 }
 
-Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
+Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks) {
 	FILE* file = storage->file;
 	Metadata metadata = storage->metadata;
 	
@@ -148,11 +148,8 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 		free(matched_blocks_sizes);
 		free(data_buff);
 
-		Getted_entities* result = (Getted_entities*)malloc(sizeof(Getted_entities));
-		result->size = matched_blocks_number;
-		result->block_ids = block_ids;
-		result->entities = (void*)entities;
-		return result;
+		
+		return (Getted_entities) { .size = matched_blocks_number, .block_ids = block_ids, .entities = (void*)entities };
 	}
 	else assert(0);
 }

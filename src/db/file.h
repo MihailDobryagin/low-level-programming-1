@@ -75,7 +75,7 @@ typedef struct {
 
 Storage* init_storage(char* file_name);
 
-Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks); // Only WORKING
+Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type type, uint32_t start_index, uint32_t number_of_blocks); // Only WORKING
 
 void add_entity(Storage* storage, Data_to_add* data);
 
