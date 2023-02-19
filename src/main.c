@@ -18,10 +18,11 @@ static void _test_CRUD_for_nodes();
 static void _test_CRUD_for_edges();
 static void _test_expand_and_collapse();
 static void _test_insert_metrics();
+static void _test_get_metrics();
 
 int main(int argc, char** argv) {
-	_test_insert_metrics();
-
+	//_test_insert_metrics();
+	_test_get_metrics();
 	return 0;
 }
 
@@ -168,6 +169,8 @@ static void _test_CRUD_for_edges() {
 	make_quarrel(db, actual_friendship_edge);
 	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
 	actual_friendship_edge = getted_edges.values[0];
+
+	close_database(db);
 }
 
 static void _test_expand_and_collapse() {
@@ -218,14 +221,14 @@ static void _test_expand_and_collapse() {
 	print_tag(tag_info(db, (Get_tag) { .tag_name = "g" }));
 	print_tag(tag_info(db, (Get_tag) { .tag_name = "i" }));
 
-
+	close_database(db);
 }
 
 static void _test_insert_metrics() {
 	FILE* insert_metrics_file = fopen("insert_metrics.txt", "w+");
 	_clear_db_file();
 	Database* db = init_database("db_file.txt");
-	char* long_long_property_of_tag_name = (char*)malloc((1 << (20)) + 1); // 20 Mb
+	char* long_long_property_of_tag_name = (char*)malloc((1 << (20)) + 1); // 10 Mb
 	for (uint32_t i = 0; i < (1 << 20); i++) {
 		long_long_property_of_tag_name[i] = 'a' + (i % 26);
 	}
@@ -239,12 +242,11 @@ static void _test_insert_metrics() {
 		.property_names = (char* [1]) { long_long_property_of_tag_name}
 	};
 
-	for (size_t i = 0; i < 10; i++) {
+	for (size_t i = 0; i < 10000; i++) {
 		if (i % 1000 == 0) {
 			printf("%d\n", i);
 		}
 		char* tag_name = num_as_str(i);
-		tag.name = tag_name;
 		const struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
 		create_tag(db, (Create_tag) { .tag = tag });
 		const struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
@@ -257,9 +259,60 @@ static void _test_insert_metrics() {
 		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, insert_metrics_file);
 		fwrite("\n", 1, 1, insert_metrics_file);
 		free(tag_name);
+		free(time_diff_as_str);
 	}
 
 	fclose(insert_metrics_file);
+	close_database(db);
+}
+
+static void _test_get_metrics() {
+	FILE* get_metrics_file = fopen("get_metrics.txt", "w+");
+	Database* db = init_database("db_file.txt");
+	
+	Tag tag;
+	struct timespec start_time, finish_time;
+	clock_gettime(CLOCK_REALTIME, &start_time);
+	tag= tag_info(db, (Get_tag) { .tag_name = "9999" });
+	clock_gettime(CLOCK_REALTIME, &finish_time);
+	print_tag(tag);
+	printf("\n\n\n\n");
+
+	free_tag_internal(tag);
+
+	int64_t time_diff = _calc_time_diff(start_time, finish_time);
+	if (time_diff < 0) {
+		printf("FINISH TIME < START_TIME");
+		return;
+	}
+	char* time_diff_as_str = num_as_str(time_diff);
+	fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, get_metrics_file);
+	fwrite("\n", 1, 1, get_metrics_file);
+	free(time_diff_as_str);
+
+	///////////////////////////////////////////////////////
+	// second search
+	///////////////////////////////////////////////////////
+	
+	clock_gettime(CLOCK_REALTIME, &start_time);
+	tag = tag_info(db, (Get_tag) { .tag_name = "5000" });
+	clock_gettime(CLOCK_REALTIME, &finish_time);
+	print_tag(tag);
+	printf("\n\n\n\n");
+
+	free_tag_internal(tag);
+
+	time_diff = _calc_time_diff(start_time, finish_time);
+	if (time_diff < 0) {
+		printf("FINISH TIME < START_TIME");
+		return;
+	}
+	time_diff_as_str = num_as_str(time_diff);
+	fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, get_metrics_file);
+	fwrite("\n", 1, 1, get_metrics_file);
+
+	fclose(get_metrics_file);
+	close_database(db);
 }
 
 static int64_t _calc_time_diff(struct timespec start, struct timespec finish) {
