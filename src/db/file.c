@@ -86,6 +86,7 @@ void add_entity(Storage* storage, Data_to_add* data) {
 	}
 	
 	_store_entity(storage, data->type, &serialized);
+	free(serialized.data);
 	
 	if(metadata->blocks_size == metadata->blocks_capacity) _expand_storage(storage);
 }
@@ -97,61 +98,63 @@ Getted_entities* get_entities(Storage* storage, Getting_mode mode, Entity_type t
 	uint32_t current_size = 0;
 	Header_block* headers = (Header_block*)malloc(sizeof(Header_block) * number_of_blocks);
 	
-	if(mode == ALL) {
+	if (mode == ALL) {
 		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);
 		fseek(file, metadata.headers_offset, SEEK_SET);
 		fread(headers_buff, sizeof(Header_block), metadata.blocks_size, file);
-		
+
 		uint32_t passed_blocks = 0;
 		uint32_t matched_blocks_number = 0;
-		uint64_t* matched_blocks_sizes = (uint64_t*)malloc(sizeof(uint64_t) * number_of_blocks);
-		uint32_t* matched_blocks = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks); // indexes
-		uint64_t matched_data_size = 0;
+		uint32_t* matched_blocks = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks); // indexes        // FREE
+		uint64_t* matched_blocks_sizes = (uint64_t*)malloc(sizeof(uint64_t) * number_of_blocks);             // FREE
 		uint32_t* block_ids = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
-		
-		for(uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
+		uint64_t matched_data_size = 0;
+
+		for (uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
 			const Header_block header = headers_buff[i];
-			if(header.status != WORKING || header.type != type) continue;
-			if(passed_blocks++ < start_index) continue;
-			
+			if (header.status != WORKING || header.type != type) continue;
+			if (passed_blocks++ < start_index) continue;
+
 			matched_data_size += header.data_size;
 			matched_blocks[matched_blocks_number] = i;
 			matched_blocks_sizes[matched_blocks_number] = header.data_size;
 			block_ids[matched_blocks_number] = header.block_unique_id;
 			matched_blocks_number++;
 		}
-		
-		// assert(matched_blocks_number == number_of_blocks); // TODO
-		
-		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size); // FREE
+
+		uint8_t* data_buff = (uint8_t*)malloc(matched_data_size);                                             // FREE
 		uint8_t* cur_data_buff_addr = data_buff;
-		
-		for(uint32_t i = 0; i < matched_blocks_number; i++) {
+
+		for (uint32_t i = 0; i < matched_blocks_number; i++) {
 			const Header_block header = headers_buff[matched_blocks[i]];
 			fseek(file, header.data_offset, SEEK_SET);
 			fread(cur_data_buff_addr, header.data_size, 1, file);
 			cur_data_buff_addr += header.data_size;
 		}
-		
+		free(matched_blocks);
+
 		void* entities;
-		
-		switch(type) {
-			case TAG_ENTITY: 
-				entities = _parse_tags(matched_blocks_number, matched_blocks_sizes, data_buff); break;
-			case NODE_ENTITY: 
-				entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff); break;
-			case EDGE_ENTITY: 
-				entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff); break;
-			default:
-				assert(0);
+
+		switch (type) {
+		case TAG_ENTITY:
+			entities = _parse_tags(matched_blocks_number, matched_blocks_sizes, data_buff); break;
+		case NODE_ENTITY:
+			entities = _parse_nodes(matched_blocks_number, matched_blocks_sizes, data_buff); break;
+		case EDGE_ENTITY:
+			entities = _parse_edges(matched_blocks_number, matched_blocks_sizes, data_buff); break;
+		default:
+			assert(0);
 		}
-		
+		free(matched_blocks_sizes);
+		free(data_buff);
+
 		Getted_entities* result = (Getted_entities*)malloc(sizeof(Getted_entities));
 		result->size = matched_blocks_number;
 		result->block_ids = block_ids;
 		result->entities = (void*)entities;
 		return result;
-	}	
+	}
+	else assert(0);
 }
 
 void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* entity_ids) {
@@ -159,7 +162,7 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 	const uint32_t default_headers_buff_size = 20;
 	uint32_t amount_of_deleted = 0;
 	uint32_t headers_buff_size = default_headers_buff_size;
-	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block)*headers_buff_size);
+	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block)*headers_buff_size);                               // FREE
 	
 	fseek(storage->file, storage->metadata.headers_offset, SEEK_SET);
 	for(uint32_t i = 0; i * default_headers_buff_size < blocks_size && amount_of_deleted != to_delete_amount; i++) {
@@ -174,6 +177,7 @@ void delete_entitites(Storage* storage, uint32_t to_delete_amount, uint32_t* ent
 			}
 		}
 	}
+	free(headers_buff);
 
 	_collapse_storage(storage);
 }
@@ -185,7 +189,7 @@ void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data
 	
 	uint32_t headers_buff_size = default_headers_buff_size;
 
-	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * headers_buff_size);
+	Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * headers_buff_size);                              // FREE
 	
 	fseek(storage->file, storage->metadata.headers_offset, SEEK_SET);
 	for(uint32_t i = 0; i * default_headers_buff_size < blocks_size && amount_of_updated != size; i++) {
@@ -196,19 +200,20 @@ void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data
 			Header_block* header = headers_buff + buff_idx;
 			for(uint32_t modified_idx = 0; modified_idx < size; modified_idx++) {
 				if(entity_ids[modified_idx] == header->block_unique_id) {
-					Serialized serialized; // FREE
+					Serialized serialized;                                                                                     // FREE
 					switch(header->type) {
 						case NODE_ENTITY: serialized = _serialize_node(&modified_entities[modified_idx].node); break;
 						case EDGE_ENTITY: serialized = _serialize_edge(&modified_entities[modified_idx].edge); break;
 					}
 					_update_entity(storage, i * default_headers_buff_size + buff_idx, *header, &serialized);
+					free(serialized.data);
 					
 					amount_of_updated++;
 				}
 			}
 		}
-		
 	}
+	free(headers_buff);
 	
 }
 
@@ -242,10 +247,10 @@ static void _expand_storage(Storage* storage) {
 	
 	uint32_t count_of_matching_blocks = 0;
 	uint32_t count_of_matching_blocks_cap = 5; // capacity
-	uint32_t* blocks_to_move = (uint32_t*)malloc(sizeof(uint32_t) * count_of_matching_blocks_cap); // indexes of headers
+	uint32_t* blocks_to_move = (uint32_t*)malloc(sizeof(uint32_t) * count_of_matching_blocks_cap); // indexes of headers          // FREE
 	
 	fseek(storage->file, metadata->headers_offset, SEEK_SET);
-	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));
+	Header_block* const header_buff = (Header_block*)malloc(sizeof(Header_block));                                                // FREE
 	for(uint32_t i = 0; i < metadata->blocks_size; i++) {
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
 		if(header_buff->data_offset < after_target_last_header_addr) {
@@ -277,6 +282,10 @@ static void _expand_storage(Storage* storage) {
 		fwrite(header_buff, sizeof(Header_block), 1, storage->file);
 		new_current_data_offset += header_buff->data_size;
 	}
+
+	free(blocks_to_move);
+	free(header_buff);
+
 	const uint64_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_blocks;
 	metadata->blocks_capacity = new_capacity;
 	metadata->data_offset = new_data_offset;
@@ -306,10 +315,11 @@ static void _force_collapse(Storage* storage) {
 	const uint64_t new_data_offset = metadata->headers_offset + sizeof(Header_block) * new_capacity;
 	// Идём слева и ищем первый попавшийся draft, потом идём справа и ищем первый working. Вставляем w в d
 	uint32_t right_idx = metadata->blocks_size; // out of bound
-	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block)); // FREE
+	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));                                                   // FREE
 	uint64_t new_data_size = 0;
+                                                                                                                               // FREE working_data_offs 
 	struct Header_for_sorting_by_off* working_data_offs = (struct Header_for_sorting_by_off*)malloc(sizeof(struct Header_for_sorting_by_off) * working_blocks_amount);
-	uint64_t* working_data_sizes = (uint64_t*)malloc(sizeof(uint64_t) * working_blocks_amount);
+	uint64_t* working_data_sizes = (uint64_t*)malloc(sizeof(uint64_t) * working_blocks_amount);                                // FREE
 
 	for (uint32_t working_blocks_at_beginning = 0; working_blocks_at_beginning < working_blocks_amount; working_blocks_at_beginning++) {
 		fseek(storage->file, metadata->headers_offset + sizeof(Header_block) * working_blocks_at_beginning, SEEK_SET);
@@ -327,6 +337,8 @@ static void _force_collapse(Storage* storage) {
 		working_data_sizes[working_blocks_at_beginning] = header_buff->data_size;
 		new_data_size += header_buff->data_size;
 	}
+
+	free(header_buff);
 
 	// move data
 	qsort(working_data_offs, working_blocks_amount, sizeof(struct Header_for_sorting_by_off), comp_for_sorting_headers);
@@ -346,6 +358,10 @@ static void _force_collapse(Storage* storage) {
 		fseek(storage->file, header_off + field_offset, SEEK_SET);
 		fwrite(&current_block_data_offset, sizeof(uint64_t), 1, storage->file);
 	}
+
+	free(working_data_offs);
+	free(working_data_sizes);
+
 	metadata->blocks_size = working_blocks_amount;
 	metadata->draft_blocks_size= 0;
 	metadata->blocks_capacity = new_capacity;
@@ -365,17 +381,17 @@ static void _collapse_storage(Storage* storage) {
 }
 
 static Serialized _serialize_tag(Tag* tag) {
-	uint32_t type_size = sizeof(Tag_type);
-	uint32_t name_size = strlen(tag->name);
-	uint32_t properties_size_size = sizeof(uint32_t);
-	uint32_t property_types_size = sizeof(Type) * tag->properties_size;
+	const uint32_t type_size = sizeof(Tag_type);
+	const uint32_t name_size = strlen(tag->name);
+	const uint32_t properties_size_size = sizeof(uint32_t);
+	const uint32_t property_types_size = sizeof(Type) * tag->properties_size;
 	uint32_t property_names_size = 0;
 	
 	for(uint32_t i = 0; i < tag->properties_size; i++) {
 		property_names_size += strlen(tag->property_names[i]) + 1;
 	}
 	
-	uint32_t data_size = type_size + (name_size + 1) + properties_size_size + property_types_size + property_names_size;
+	const uint32_t data_size = type_size + (name_size + 1) + properties_size_size + property_types_size + property_names_size;
 	
 	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	uint8_t* cur_buff_addr = data_buff;
@@ -394,7 +410,7 @@ static Serialized _serialize_tag(Tag* tag) {
 	
 	// Serialize _property_types + _property_names
 	uint32_t prev_property_names_size = 0;
-	uint32_t property_names_offset = sizeof(Type) * tag->properties_size;
+	const uint32_t property_names_offset = sizeof(Type) * tag->properties_size;
 	for(uint32_t i = 0; i < tag->properties_size; i++) {
 		*(cur_buff_addr + sizeof(Type) * i) = tag->property_types[i];
 		strcpy(cur_buff_addr + property_names_offset + prev_property_names_size, tag->property_names[i]);
@@ -406,18 +422,18 @@ static Serialized _serialize_tag(Tag* tag) {
 }
 
 static Serialized _serialize_node(Node* node) {
-	uint32_t tag_name_size = strlen(node->tag);
-	uint32_t id_size = _calc_field_size(node->id);
-	uint32_t properties_size_size = sizeof(uint32_t);
+	const uint32_t tag_name_size = strlen(node->tag);
+	const uint32_t id_size = _calc_field_size(node->id);
+	const uint32_t properties_size_size = sizeof(uint32_t);
 	uint32_t properties_result_size = 0;
 	
 	for(uint32_t i = 0; i < node->properties_size; i++) {
 		properties_result_size += _calc_property_size(node->properties[i]);
 	}
 	
-	uint32_t data_size = tag_name_size + 1 + id_size + properties_size_size + properties_result_size;
+	const uint32_t data_size = tag_name_size + 1 + id_size + properties_size_size + properties_result_size;
 	
-	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
+	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Serialize tag_name
@@ -442,19 +458,19 @@ static Serialized _serialize_node(Node* node) {
 }
 
 static Serialized _serialize_edge(Edge* edge) {
-	uint32_t tag_name_size = strlen(edge->tag);
-	uint32_t id_size = _calc_field_size(edge->id);
-	uint32_t node1_id_size = _calc_field_size(edge->node1_id);
-	uint32_t node2_id_size = _calc_field_size(edge->node2_id);
-	uint32_t properties_size_size = sizeof(uint32_t);
+	const uint32_t tag_name_size = strlen(edge->tag);
+	const uint32_t id_size = _calc_field_size(edge->id);
+	const uint32_t node1_id_size = _calc_field_size(edge->node1_id);
+	const uint32_t node2_id_size = _calc_field_size(edge->node2_id);
+	const uint32_t properties_size_size = sizeof(uint32_t);
 	uint32_t properties_result_size = 0;
 	
 	for(uint32_t i = 0; i < edge->properties_size; i++) {
 		properties_result_size += _calc_property_size(edge->properties[i]);
 	}
 	
-	uint32_t data_size = (tag_name_size + 1) + id_size + node1_id_size + node2_id_size  + properties_size_size + properties_result_size;
-	uint8_t* data_buff = (uint8_t*)malloc(data_size); // FREE
+	const uint32_t data_size = (tag_name_size + 1) + id_size + node1_id_size + node2_id_size  + properties_size_size + properties_result_size;
+	uint8_t* data_buff = (uint8_t*)malloc(data_size);
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Serialize tag_name
@@ -485,7 +501,7 @@ static Serialized _serialize_edge(Edge* edge) {
 }
 
 static uint32_t _calc_field_size(Field field) {
-	uint32_t type_size = sizeof(Type);
+	const uint32_t type_size = sizeof(Type);
 	uint32_t value_size;
 	switch(field.type) {
 		case BYTE: value_size = sizeof(int8_t); break;
@@ -523,7 +539,7 @@ static void _put_property(uint8_t* buff, Property prop) {
 
 static Field _scan_field(uint8_t** stream) {
 	uint8_t* cur_addr = *stream;
-	Type type = *(Type*)cur_addr;
+	const Type type = *(Type*)cur_addr;
 	cur_addr += sizeof(Type);
 	
 	union {
@@ -574,7 +590,7 @@ static Field _scan_field(uint8_t** stream) {
 }
 
 static Property _scan_property(uint8_t** stream) {
-	uint32_t name_len = strlen(((Property*)stream)->name);
+	const uint32_t name_len = strlen(((Property*)stream)->name);
 	char* name = (char*)malloc(name_len + 1);
 	strcpy(name, ((Property*)stream)->name);
 	*stream += name_len + 1;
@@ -686,14 +702,15 @@ static Edge* _parse_edges(uint32_t blocks_number, uint64_t* sizes, uint8_t* data
 }
 
 static void _delete_entity(Storage* storage, uint32_t header_number) {
-	uint32_t header_offset = storage->metadata.headers_offset + sizeof(Header_block) * header_number;
-	Header_block* header = (Header_block*)malloc(sizeof(Header_block));
+	const uint32_t header_offset = storage->metadata.headers_offset + sizeof(Header_block) * header_number;
+	Header_block* header = (Header_block*)malloc(sizeof(Header_block));                                                        // FREE
 	assert(header->status == WORKING);
 	fseek(storage->file, header_offset, SEEK_SET);
 	fread(header, sizeof(Header_block), 1, storage->file);
 	header->status = DRAFT;
 	fseek(storage->file, header_offset, SEEK_SET);
 	fwrite(header, sizeof(Header_block), 1, storage->file);
+	free(header);
 
 	storage->metadata.draft_blocks_size++;
 	_update_metadata(storage);

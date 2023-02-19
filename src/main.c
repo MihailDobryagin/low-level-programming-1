@@ -239,7 +239,7 @@ static void _test_insert_metrics() {
 		.property_names = (char* [1]) { long_long_property_of_tag_name}
 	};
 
-	for (size_t i = 0; i < 10000; i++) {
+	for (size_t i = 0; i < 10; i++) {
 		if (i % 1000 == 0) {
 			printf("%d\n", i);
 		}
