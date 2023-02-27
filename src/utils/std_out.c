@@ -17,7 +17,7 @@ void print_tag(Tag tag) {
 
 	printf("properties:\n");
 	for (uint32_t i = 0; i < tag.properties_size; i++) {
-		printf("\t%15s : <%s>\n", tag.property_names[i], type_as_str(tag.property_types[i]));
+		printf("\t<%s> : %s\n", type_as_str(tag.property_types[i]), tag.property_names[i]);
 	}
 	printf("\n\n--------------------TAG--------------------\n");
 }

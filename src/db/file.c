@@ -95,11 +95,10 @@ Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type ty
 	FILE* file = storage->file;
 	Metadata metadata = storage->metadata;
 	
-	uint32_t current_size = 0;
 	Header_block* headers = (Header_block*)malloc(sizeof(Header_block) * number_of_blocks);
 	
 	if (mode == ALL) {
-		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);
+		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);                       // FREE
 		fseek(file, metadata.headers_offset, SEEK_SET);
 		fread(headers_buff, sizeof(Header_block), metadata.blocks_size, file);
 
@@ -110,7 +109,7 @@ Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type ty
 		uint32_t* block_ids = (uint32_t*)malloc(sizeof(uint32_t) * number_of_blocks);
 		uint64_t matched_data_size = 0;
 
-		for (uint32_t i = 0; i < metadata.blocks_size && current_size < number_of_blocks; i++) {
+		for (uint32_t i = 0; i < metadata.blocks_size && matched_blocks_number < number_of_blocks; i++) {
 			const Header_block header = headers_buff[i];
 			if (header.status != WORKING || header.type != type) continue;
 			if (passed_blocks++ < start_index) continue;
@@ -132,6 +131,7 @@ Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type ty
 			cur_data_buff_addr += header.data_size;
 		}
 		free(matched_blocks);
+		free(headers_buff);
 
 		void* entities;
 
@@ -238,7 +238,7 @@ static void _update_metadata(Storage* storage) {
 static void _expand_storage(Storage* storage) {
 	Metadata* metadata = &(storage->metadata);
 	
-	const uint32_t capacity_diff = metadata->blocks_capacity / 4; // TODO Make dynamic coeff
+	const uint32_t capacity_diff = metadata->blocks_capacity / 2; // TODO Make dynamic coeff
 	const uint32_t new_capacity = metadata->blocks_capacity + capacity_diff; 
 	const uint64_t after_target_last_header_addr = metadata->headers_offset + sizeof(Header_block) * new_capacity; // excluding
 	
@@ -394,7 +394,7 @@ static Serialized _serialize_tag(Tag* tag) {
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Serialize _type
-	*(cur_buff_addr) = tag->type;
+	*(Tag_type*)(cur_buff_addr) = tag->type;
 	cur_buff_addr += type_size;
 	
 	// Serialize _name
@@ -402,14 +402,14 @@ static Serialized _serialize_tag(Tag* tag) {
 	cur_buff_addr += name_size + 1;
 	
 	// Serialize _properties_size
-	*(cur_buff_addr) = tag->properties_size;
-	cur_buff_addr += sizeof(uint32_t);
+	*(uint32_t*)(cur_buff_addr) = tag->properties_size;
+	cur_buff_addr += properties_size_size;
 	
 	// Serialize _property_types + _property_names
 	uint32_t prev_property_names_size = 0;
 	const uint32_t property_names_offset = sizeof(Type) * tag->properties_size;
 	for(uint32_t i = 0; i < tag->properties_size; i++) {
-		*(cur_buff_addr + sizeof(Type) * i) = tag->property_types[i];
+		*(Type*)(cur_buff_addr + sizeof(Type) * i) = tag->property_types[i];
 		strcpy(cur_buff_addr + property_names_offset + prev_property_names_size, tag->property_names[i]);
 		prev_property_names_size += strlen(tag->property_names[i]) + 1;
 	}
@@ -442,7 +442,7 @@ static Serialized _serialize_node(Node* node) {
 	cur_buff_addr += id_size;
 	
 	// Serialize _properties_size
-	*(cur_buff_addr) = node->properties_size;
+	*(uint32_t*)(cur_buff_addr) = node->properties_size;
 	cur_buff_addr += properties_size_size;
 	
 	// Serialize _properties
@@ -485,7 +485,7 @@ static Serialized _serialize_edge(Edge* edge) {
 	cur_buff_addr += node2_id_size;
 	
 	// Serialize _properties_size
-	*(cur_buff_addr) = edge->properties_size;
+	*(uint32_t*)(cur_buff_addr) = edge->properties_size;
 	cur_buff_addr += properties_size_size;
 	
 	// Serialize _properties
@@ -517,14 +517,14 @@ static uint32_t _calc_property_size(Property prop) {
 }
 
 static void _put_field(uint8_t* buff, Field field) {
-	*buff = field.type;
+	*(Type*)buff = field.type;
 	uint8_t* val_addr = buff + sizeof(Type);
 	switch(field.type) {
 		case STRING: strcpy(val_addr, field.string); break;
 		case BYTE: *val_addr = field.byte; break;
-		case NUMBER: *val_addr = field.number; break;
+		case NUMBER: *(int32_t*)val_addr = field.number; break;
 		case BOOLEAN: *val_addr = (uint8_t) field.boolean; break;
-		case CHARACTER: *val_addr = (uint8_t) field.character; break;
+		case CHARACTER: *(char*)val_addr = (uint8_t) field.character; break;
 		default: assert(0);
 	}
 }
@@ -598,7 +598,7 @@ static Property _scan_property(uint8_t** stream) {
 static Tag _parse_tag(uint64_t data_size, uint8_t* data) {
 	Tag_type type = *((Tag_type*)data);
 	data += sizeof(Tag_type);
-	
+
 	uint32_t name_len = strlen((char*)data);
 	char* name = (char*)malloc(name_len + 1);
 	strcpy(name, (char*)data);
@@ -607,8 +607,8 @@ static Tag _parse_tag(uint64_t data_size, uint8_t* data) {
 	uint32_t properties_size = *((uint32_t*)data);
 	data += sizeof(uint32_t);
 	
-	Type* property_types = (Type*)malloc(sizeof(Type));
-	for(uint32_t i = 0; i< properties_size; i++) {
+	Type* property_types = (Type*)malloc(sizeof(Type) * properties_size);
+	for(uint32_t i = 0; i < properties_size; i++) {
 		property_types[i] = *((Type*)data);
 		data += sizeof(Type);
 	}

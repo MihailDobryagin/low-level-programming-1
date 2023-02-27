@@ -28,8 +28,14 @@ char* field_as_str(Field field) {
 }
 
 char* num_as_str(int64_t value) {
-	bool is_negative = value < 0;
+	
 	char* res = (char*)malloc(65);
+	if (value == 0) {
+		res[0] = '0';
+		res[1] = '\0';
+		return res;
+	}
+	bool is_negative = value < 0;
 	uint8_t pos = 0;
 	if (is_negative) res[pos++] = '-';
 	value = abs(value);
@@ -41,8 +47,8 @@ char* num_as_str(int64_t value) {
 
 	res[pos] = '\0';
 
-	for (int i = is_negative; i < (is_negative + pos - 1) / 2; i++) {
-		char tmp = res[i];
+	for (int i = 0; i < pos / 2; i++) {
+		char tmp = res[is_negative + i];
 		res[i] = res[pos - 1 - i];
 		res[pos - 1 - i] = tmp;
 	}
