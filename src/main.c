@@ -267,6 +267,7 @@ static void _test_insert_metrics() {
 }
 
 static void _test_all_metrics() {
+	const int tags_amount = 1000;
 	FILE* insert_metrics_file = fopen("insert_metrics.txt", "w+");
 	FILE* get_metrics_file = fopen("get_metrics.txt", "w+");
 	_clear_db_file();
@@ -287,7 +288,7 @@ static void _test_all_metrics() {
 
 	const struct timespec start_time, finish_time;
 	int64_t time_diff; char* time_diff_as_str;
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < tags_amount; i++) {
 		if (i % 50 == 0) {
 			printf("%d\n", i);
 		}
@@ -315,11 +316,33 @@ static void _test_all_metrics() {
 		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, get_metrics_file);
 		fwrite("\n", 1, 1, get_metrics_file);
 		free(time_diff_as_str);
-		free(tag.name);
 	}
 
 	fclose(insert_metrics_file);
 	fclose(get_metrics_file);
+
+	printf("\n\nStart collecting DELETE metrics\n");
+	//////////////////////////////////////////////////
+	// DELETE
+	//////////////////////////////////////////////////
+	FILE* delete_metrics_file = fopen("delete_metrics.txt", "w+");
+	for (int i = tags_amount - 1; i >= 0; i--) {
+		if (i % 50 == 0) {
+			printf("%d\n", i);
+		}
+		char* tag_name = num_as_str(i);
+		clock_gettime(CLOCK_REALTIME, &start_time);
+		delete_tag(db, (Delete_tag) { .tag_name = tag_name });
+		clock_gettime(CLOCK_REALTIME, &finish_time);
+		time_diff = _calc_time_diff(start_time, finish_time);
+		time_diff_as_str = num_as_str(time_diff);
+		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, delete_metrics_file);
+		fwrite("\n", 1, 1, delete_metrics_file);
+		free(time_diff_as_str);
+		free(tag_name);
+	}
+	fclose(delete_metrics_file);
+
 	close_database(db);
 }
 
