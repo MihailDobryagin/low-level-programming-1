@@ -501,11 +501,11 @@ static uint32_t _calc_field_size(Field field) {
 	const uint32_t type_size = sizeof(Type);
 	uint32_t value_size;
 	switch(field.type) {
+		case STRING: value_size = strlen(field.string) + 1; break;
 		case BYTE: value_size = sizeof(int8_t); break;
 		case NUMBER: value_size = sizeof(int32_t); break;
 		case BOOLEAN: value_size = sizeof(bool); break;
 		case CHARACTER: value_size = sizeof(char); break;
-		case STRING: value_size = strlen(field.string) + 1; break;
 		default: assert(0);
 	}
 
@@ -521,7 +521,7 @@ static void _put_field(uint8_t* buff, Field field) {
 	uint8_t* val_addr = buff + sizeof(Type);
 	switch(field.type) {
 		case STRING: strcpy(val_addr, field.string); break;
-		case BYTE: *val_addr = field.byte; break;
+		case BYTE: *(int8_t*)val_addr = field.byte; break;
 		case NUMBER: *(int32_t*)val_addr = field.number; break;
 		case BOOLEAN: *val_addr = (uint8_t) field.boolean; break;
 		case CHARACTER: *(char*)val_addr = (uint8_t) field.character; break;
