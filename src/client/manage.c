@@ -55,7 +55,10 @@ Array_node nodes(Database* db, Select_nodes query) {
 void delete_nodes(Database* db, Select_nodes query) {
 	Array_node getted_nodes = nodes(db, query);
 	for (int i = 0; i < getted_nodes.size; i++) {
-		drop_node(db, getted_nodes.values[i].tag, getted_nodes.values[i].id);
+		Node node = getted_nodes.values[i];
+		Field node_id = node.id;
+		drop_node(db, node.tag, node_id);
+		delete_edges(db, (Select_edges) { .selection_mode = BY_LINKED_NODE, .node_id = node_id });
 	}
 }
 

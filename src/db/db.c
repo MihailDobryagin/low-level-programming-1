@@ -106,7 +106,7 @@ Array_node get_nodes(Database* db, char* tag_name) {
 		}
 		
 		for (uint32_t i = 0; i < selected.size; i++) {
-			if (strcmp(nodes[i].tag, tag_name) == 0) {
+			if (tag_name == NULL || strcmp(nodes[i].tag, tag_name) == 0) {
 				result[current_size++] = nodes[i];
 				if (current_size == current_capacity) {
 					current_capacity = current_capacity * 3 / 2;
@@ -212,7 +212,7 @@ Array_edge get_edges(Database* db, char* tag_name) {
 		}
 
 		for (uint32_t i = 0; i < selected.size; i++) {
-			if (strcmp(edges[i].tag, tag_name) == 0) {
+			if (tag_name == NULL || strcmp(edges[i].tag, tag_name) == 0) {
 				result[current_size++] = edges[i];
 				if (current_size == current_capacity) {
 					current_capacity = current_capacity * 3 / 2;
