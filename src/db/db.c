@@ -110,7 +110,7 @@ Array_node get_nodes(Database* db, char* tag_name) {
 				result[current_size++] = nodes[i];
 				if (current_size == current_capacity) {
 					current_capacity = current_capacity * 3 / 2;
-					result = (Node*)realloc(result, current_capacity);
+					result = (Node*)realloc(result, sizeof(Node) * current_capacity);
 				}
 			}
 			else free_node_internal(nodes[i]);

@@ -25,11 +25,11 @@ static void _test_nodes_linking();
 
 int main(int argc, char** argv) {
 	//_test_insert_metrics();
-	//_test_all_metrics();
+	_test_all_metrics();
 	//_test_update_metrics();
 	//_test_delete_edges_after_node_deletion();
 	//_test_update_metrics();
-	_test_nodes_linking();
+	//_test_nodes_linking();
 	return 0;
 }
 
