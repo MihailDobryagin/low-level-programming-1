@@ -444,7 +444,7 @@ static void _test_delete_edges_after_node_deletion() {
 }
 
 static void _test_nodes_linking() {
-	const int nodes_amount = 100;
+	const int nodes_amount = 1000;
 	FILE* linked_nodes_metrics_file = fopen("linked_nodes_metrics.txt", "w+");
 	_clear_db_file();
 	Database* db = init_database("db_file.txt");
