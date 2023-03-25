@@ -25,11 +25,10 @@ static void _test_nodes_linking();
 
 int main(int argc, char** argv) {
 	//_test_insert_metrics();
-	_test_all_metrics();
+	//_test_all_metrics();
 	//_test_update_metrics();
 	//_test_delete_edges_after_node_deletion();
-	//_test_update_metrics();
-	//_test_nodes_linking();
+	_test_nodes_linking();
 	return 0;
 }
 
@@ -467,7 +466,7 @@ static void _test_nodes_linking() {
 			.properties_size = 2,
 			.properties = &((Property[2]) {
 				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
-				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
+				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} }
 			})
 	};
 	
@@ -480,7 +479,6 @@ static void _test_nodes_linking() {
 				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
 			})
 	};
-	
 	Node node_for_link_2 = {
 			.tag = "nodes",
 			.id = (Field){.type = NUMBER, .number = 0},
@@ -490,6 +488,7 @@ static void _test_nodes_linking() {
 				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
 			})
 	};
+
 	const struct timespec start_time, finish_time;
 	for (int32_t i = 1; i <= nodes_amount; i++) {
 		if (i % (nodes_amount / 10) == 0 ) printf("%d\n", i);

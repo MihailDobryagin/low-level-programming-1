@@ -587,9 +587,10 @@ static Field _scan_field(uint8_t** stream) {
 }
 
 static Property _scan_property(uint8_t** stream) {
-	const uint32_t name_len = strlen(((Property*)stream)->name);
+	uint8_t* cur_addr = *stream;
+	const uint32_t name_len = strlen((char*)cur_addr);
 	char* name = (char*)malloc(name_len + 1);
-	strcpy(name, ((Property*)stream)->name);
+	strcpy(name, (char*)cur_addr);
 	*stream += name_len + 1;
 	Field field = _scan_field(stream);
 	return (Property){name, field};
