@@ -43,7 +43,7 @@ void create_simple_node(Database* db, char* tag_name, int32_t id) {
 }
 
 void link_simple_nodes(Database* db, char* edge_tag_name, int32_t edge_id, int32_t id1, int32_t id2) {
-	Edge friendship_edge = {
+	Edge edge = {
 		.tag = edge_tag_name,
 		.id = (Field){.type = NUMBER, .number= edge_id},
 		.node1_id = (Field){.type = NUMBER, .number = id1},
@@ -52,7 +52,7 @@ void link_simple_nodes(Database* db, char* edge_tag_name, int32_t edge_id, int32
 		.properties = NULL
 	};
 
-	create_edge(db, (Create_edge) { friendship_edge });
+	create_edge(db, (Create_edge) { edge });
 }
 
 void create_animals_tag(Database* db) {

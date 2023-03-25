@@ -95,8 +95,6 @@ Getted_entities get_entities(Storage* storage, Getting_mode mode, Entity_type ty
 	FILE* file = storage->file;
 	Metadata metadata = storage->metadata;
 	
-	Header_block* headers = (Header_block*)malloc(sizeof(Header_block) * number_of_blocks);
-	
 	if (mode == ALL) {
 		Header_block* headers_buff = (Header_block*)malloc(sizeof(Header_block) * metadata.blocks_size);                       // FREE
 		fseek(file, metadata.headers_offset, SEEK_SET);
@@ -201,6 +199,9 @@ void update_entities(Storage* storage, uint32_t size, uint32_t* entity_ids, Data
 					switch(header->type) {
 						case NODE_ENTITY: serialized = _serialize_node(&modified_entities[modified_idx].node); break;
 						case EDGE_ENTITY: serialized = _serialize_edge(&modified_entities[modified_idx].edge); break;
+						default: 
+							printf("Entity does not allowed to update\n");
+							assert(0);
 					}
 					_update_entity(storage, i * default_headers_buff_size + buff_idx, *header, &serialized);
 					free(serialized.data);
@@ -290,14 +291,14 @@ static void _expand_storage(Storage* storage) {
 	_update_metadata(storage);
 }
 
-static struct Header_for_sorting_by_off {
+typedef struct {
 	uint32_t idx;
 	uint64_t data_offset;
-};
+} Header_for_sorting_by_off;
 
 static int comp_for_sorting_headers(const void* p1, const void* p2) {
-	struct Header_for_sorting_by_off* h1 = (struct Header_for_sorting_by_off*)p1;
-	struct Header_for_sorting_by_off* h2 = (struct Header_for_sorting_by_off*)p2;
+	Header_for_sorting_by_off* h1 = (Header_for_sorting_by_off*)p1;
+	Header_for_sorting_by_off* h2 = (Header_for_sorting_by_off*)p2;
 
 	if (h1->data_offset < h2->data_offset) return -1;
 	if (h1->data_offset > h2->data_offset) return 1;
@@ -315,7 +316,7 @@ static void _force_collapse(Storage* storage) {
 	Header_block* header_buff = (Header_block*)malloc(sizeof(Header_block));                                                   // FREE
 	uint64_t new_data_size = 0;
                                                                                                                                // FREE working_data_offs 
-	struct Header_for_sorting_by_off* working_data_offs = (struct Header_for_sorting_by_off*)malloc(sizeof(struct Header_for_sorting_by_off) * working_blocks_amount);
+	Header_for_sorting_by_off* working_data_offs = (Header_for_sorting_by_off*)malloc(sizeof(Header_for_sorting_by_off) * working_blocks_amount);
 	uint64_t* working_data_sizes = (uint64_t*)malloc(sizeof(uint64_t) * working_blocks_amount);                                // FREE
 
 	for (uint32_t working_blocks_at_beginning = 0; working_blocks_at_beginning < working_blocks_amount; working_blocks_at_beginning++) {
@@ -338,7 +339,7 @@ static void _force_collapse(Storage* storage) {
 	free(header_buff);
 
 	// move data
-	qsort(working_data_offs, working_blocks_amount, sizeof(struct Header_for_sorting_by_off), comp_for_sorting_headers);
+	qsort(working_data_offs, working_blocks_amount, sizeof(Header_for_sorting_by_off), comp_for_sorting_headers);
 	uint64_t current_block_data_offset = new_data_offset;
 	for (uint32_t i = 0; i < working_blocks_amount; current_block_data_offset += working_data_sizes[working_data_offs[i].idx], i++) {
 		const uint64_t data_offset = working_data_offs[i].data_offset;
@@ -350,8 +351,8 @@ static void _force_collapse(Storage* storage) {
 		fwrite(data, working_data_sizes[idx], 1, storage->file);
 		Header_block stub_hb = {};
 		// rewrite data_offset
-		const uint32_t header_off = metadata->headers_offset + sizeof(Header_block) * idx;
-		const uint32_t field_offset = (uint32_t)&stub_hb.data_offset - (uint32_t)&stub_hb;
+		const uint64_t header_off = metadata->headers_offset + sizeof(Header_block) * idx;
+		const uint64_t field_offset = (uint64_t)&stub_hb.data_offset - (uint64_t)&stub_hb;
 		fseek(storage->file, header_off + field_offset, SEEK_SET);
 		fwrite(&current_block_data_offset, sizeof(uint64_t), 1, storage->file);
 	}
@@ -398,7 +399,7 @@ static Serialized _serialize_tag(Tag* tag) {
 	cur_buff_addr += type_size;
 	
 	// Serialize _name
-	strcpy(cur_buff_addr, tag->name);
+	strcpy((char*)cur_buff_addr, tag->name);
 	cur_buff_addr += name_size + 1;
 	
 	// Serialize _properties_size
@@ -410,7 +411,7 @@ static Serialized _serialize_tag(Tag* tag) {
 	const uint32_t property_names_offset = sizeof(Type) * tag->properties_size;
 	for(uint32_t i = 0; i < tag->properties_size; i++) {
 		*(Type*)(cur_buff_addr + sizeof(Type) * i) = tag->property_types[i];
-		strcpy(cur_buff_addr + property_names_offset + prev_property_names_size, tag->property_names[i]);
+		strcpy((char*)cur_buff_addr + property_names_offset + prev_property_names_size, tag->property_names[i]);
 		prev_property_names_size += strlen(tag->property_names[i]) + 1;
 	}
 	cur_buff_addr += property_types_size + property_names_size;
@@ -434,7 +435,7 @@ static Serialized _serialize_node(Node* node) {
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Serialize tag_name
-	strcpy(cur_buff_addr, node->tag);
+	strcpy((char*)cur_buff_addr, node->tag);
 	cur_buff_addr += tag_name_size + 1;
 	
 	// Serialize id
@@ -471,7 +472,7 @@ static Serialized _serialize_edge(Edge* edge) {
 	uint8_t* cur_buff_addr = data_buff;
 	
 	// Serialize tag_name
-	strcpy(cur_buff_addr, edge->tag);
+	strcpy((char*)cur_buff_addr, edge->tag);
 	cur_buff_addr += tag_name_size + 1;
 	
 	// Serialize _id
@@ -520,7 +521,7 @@ static void _put_field(uint8_t* buff, Field field) {
 	*(Type*)buff = field.type;
 	uint8_t* val_addr = buff + sizeof(Type);
 	switch(field.type) {
-		case STRING: strcpy(val_addr, field.string); break;
+		case STRING: strcpy((char*)val_addr, field.string); break;
 		case BYTE: *(int8_t*)val_addr = field.byte; break;
 		case NUMBER: *(int32_t*)val_addr = field.number; break;
 		case BOOLEAN: *val_addr = (uint8_t) field.boolean; break;
@@ -530,7 +531,7 @@ static void _put_field(uint8_t* buff, Field field) {
 }
 
 static void _put_property(uint8_t* buff, Property prop) {
-	strcpy(buff, prop.name);
+	strcpy((char*)buff, prop.name);
 	_put_field(buff + strlen(prop.name) + 1, prop.field);
 }
 
@@ -573,7 +574,7 @@ static Field _scan_field(uint8_t** stream) {
 		case STRING: 
 			string_len = strlen((char*)cur_addr);
 			value.string = (char*)malloc(string_len + 1);
-			strcpy(value.string, cur_addr);
+			strcpy(value.string, (char*)cur_addr);
 			value.string[string_len] = '\0';
 			cur_addr += string_len + 1;
 			result = (Field){type, .string = value.string};
@@ -619,7 +620,7 @@ static Tag _parse_tag(uint64_t data_size, uint8_t* data) {
 	for(uint32_t i = 0; i < properties_size; i++) {
 		uint32_t len = strlen((char*)data);
 		property_names[i] = (char*)malloc(sizeof(char) * len + 1);
-		strcpy(property_names[i], data);
+		strcpy(property_names[i], (char*)data);
 		data += len + 1;
 	}
 	

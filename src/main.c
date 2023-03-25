@@ -40,8 +40,8 @@ static void _test_CRUD_for_nodes() {
 		.type = NODE_TAG_TYPE,
 		.name = "tag_name",
 		.properties_size = 1,
-		.property_types = &((Type[1]) { STRING }),
-		.property_names = &((char* [1]) { "description" })
+		.property_types = (Type[1]) { STRING },
+		.property_names = (char* [1]) { "description" }
 	};
 	Create_tag create_tag_query = { tag };
 	create_tag(db, create_tag_query);
@@ -259,9 +259,9 @@ static void _test_insert_metrics() {
 			printf("%d\n", i);
 		}
 		tag.name = num_as_str(i);
-		const struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
+		struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
 		create_tag(db, (Create_tag) { .tag = tag });
-		const struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
+		struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
 		const int64_t time_diff = _calc_time_diff(start_time, finish_time);
 		if (time_diff < 0) {
 			printf("FINISH TIME < START_TIME");
@@ -282,7 +282,6 @@ static void _test_all_metrics() {
 	const int tags_amount = 1000;
 	FILE* insert_metrics_file = fopen("insert_metrics.txt", "w+");
 	FILE* get_metrics_file = fopen("get_metrics.txt", "w+");
-	FILE* update_metrics_file = fopen("update_metrics.txt", "w+");
 
 	_clear_db_file();
 	Database* db = init_database("db_file.txt");
@@ -301,7 +300,7 @@ static void _test_all_metrics() {
 		.property_names = (char* [1]) { long_long_property_of_tag_name}
 	};
 
-	const struct timespec start_time, finish_time;
+	struct timespec start_time, finish_time;
 	int64_t time_diff; char* time_diff_as_str;
 	for (int i = 0; i < tags_amount; i++) {
 		if (i % 50 == 0) {
@@ -381,7 +380,7 @@ static void _test_update_metrics() {
 		.tag = "nodes",
 		.id = (Field){.type = NUMBER, .number = 0},
 		.properties_size = 1,
-		.properties = &((Property[1]) { (Property) { .name = "long_str", .field = (Field){.type = STRING, .string = "naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"} } })
+		.properties = (Property[1]) { (Property) { .name = "long_str", .field = (Field){.type = STRING, .string = "naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"} } }
 	};
 
 	for (uint32_t i = 0; i < nodes_amount; i++) {
@@ -389,13 +388,13 @@ static void _test_update_metrics() {
 			printf("%d\n", i);
 		}
 		node.id.number = i;
-		node.properties = &((Property[1]) { (Property) { .name = "long_str", .field = (Field){ .type = STRING, .string = "naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame" } } });
+		node.properties = (Property[1]) { (Property) { .name = "long_str", .field = (Field){ .type = STRING, .string = "naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame" } } };
 		create_node(db, (Create_node) { .node = node });
 
 		node.properties[0].field.string = num_as_str(i);
-		const struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
+		struct timespec start_time; clock_gettime(CLOCK_REALTIME, &start_time);
 		change_node(db, (Change_node) { .changed_node = node});
-		const struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
+		struct timespec finish_time; clock_gettime(CLOCK_REALTIME, &finish_time);
 		const int64_t time_diff = _calc_time_diff(start_time, finish_time);
 		char* time_diff_as_str = num_as_str(time_diff);
 		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, update_metrics_file);
@@ -429,7 +428,7 @@ static void _test_delete_edges_after_node_deletion() {
 	create_friendship_between_matroskin_and_sharik(db, matroskin, sharik);
 
 	Array_edge getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
-	Edge actual_friendship_edge = getted_edges.values[0];
+	// DEBUG Edge actual_friendship_edge = getted_edges.values[0];
 
 	delete_nodes(db, (Select_nodes) {
 		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true,
@@ -453,8 +452,8 @@ static void _test_nodes_linking() {
 		.type = NODE_TAG_TYPE,
 		.name = "nodes",
 		.properties_size = 2,
-		.property_types = &((Type[2]) { NUMBER, NUMBER }),
-		.property_names = &((char* [3]) { "num1", "num2" })
+		.property_types = (Type[2]) { NUMBER, NUMBER },
+		.property_names = (char* [3]) { "num1", "num2" }
 	};
 	Create_tag create_tag_query = { tag };
 	create_tag(db, create_tag_query);
@@ -464,32 +463,32 @@ static void _test_nodes_linking() {
 			.tag = "nodes",
 			.id = (Field){.type = NUMBER, .number = 0},
 			.properties_size = 2,
-			.properties = &((Property[2]) {
+			.properties = (Property[2]) {
 				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
 				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} }
-			})
+			}
 	};
 	
 	Node node_for_link_1 = {
 			.tag = "nodes",
 			.id = (Field){.type = NUMBER, .number = 0},
 			.properties_size = 2,
-			.properties = &((Property[2]) {
+			.properties = (Property[2]) {
 				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
 				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
-			})
+			}
 	};
 	Node node_for_link_2 = {
 			.tag = "nodes",
 			.id = (Field){.type = NUMBER, .number = 0},
 			.properties_size = 2,
-			.properties = &((Property[2]) {
+			.properties = (Property[2]) {
 				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
 				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
-			})
+			}
 	};
 
-	const struct timespec start_time, finish_time;
+	struct timespec start_time, finish_time;
 	for (int32_t i = 1; i <= nodes_amount; i++) {
 		if (i % (nodes_amount / 10) == 0 ) printf("%d\n", i);
 
@@ -510,18 +509,20 @@ static void _test_nodes_linking() {
 		create_node(db, (Create_node) { .node = node_for_create });
 		create_node(db, (Create_node) { .node = node_for_link_1 });
 		create_node(db, (Create_node) { .node = node_for_link_2 });
-		link_simple_nodes(db, "edges", node_for_link_1.id.number, i, node_for_link_1.id.number);
-		link_simple_nodes(db, "edges", node_for_link_2.id.number, i, node_for_link_2.id.number);
+		const int32_t edge1_id = node_for_link_1.id.number;
+		const int32_t edge2_id = node_for_link_2.id.number;
+		link_simple_nodes(db, "edges", edge1_id, i, node_for_link_1.id.number);
+		link_simple_nodes(db, "edges", edge2_id, i, node_for_link_2.id.number);
 
 		const Properties_filter main_node_num1_filter = {
 			.properties_size = 1,
-			.types = &((Property_filter_type[1]) { EQ }),
-			.values_to_compare = &((Property[1]) { (Property) { .name = "num1", .field = (Field){.type = NUMBER, .number = i} } })
+			.types = (Property_filter_type[1]) { EQ },
+			.values_to_compare = (Property[1]) { (Property) { .name = "num1", .field = (Field){.type = NUMBER, .number = i} } }
 		};
 		Properties_filter one_of_linked_node_num2_filter = {
 			.properties_size = 1,
-			.types = &((Property_filter_type[1]) { EQ }),
-			.values_to_compare = &((Property[1]) { (Property) { .name = "num2", .field = (Field){.type = NUMBER, .number = -i} } }) // correct for i%2 or i%2 == 0 cases
+			.types = (Property_filter_type[1]) { EQ },
+			.values_to_compare = (Property[1]) { (Property) { .name = "num2", .field = (Field){.type = NUMBER, .number = -i} } } // correct for i%2 or i%2 == 0 cases
 		};
 
 		const Select_nodes select_main_node_query = {

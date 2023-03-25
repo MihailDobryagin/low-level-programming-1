@@ -216,7 +216,7 @@ Array_edge get_edges(Database* db, char* tag_name) {
 				result[current_size++] = edges[i];
 				if (current_size == current_capacity) {
 					current_capacity = current_capacity * 3 / 2;
-					result = (Edge*)realloc(result, current_capacity);
+					result = (Edge*)realloc(result, sizeof(Edge) * current_capacity);
 				}
 			}
 			else free_edge_internal(edges[i]);

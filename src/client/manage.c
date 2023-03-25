@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include "manage.h"
 #include "../db/db.h"
 #include <assert.h>
@@ -40,12 +42,10 @@ Array_node nodes(Database* db, Select_nodes query) {
 			result = get_nodes(db, query.tag_name);
 			indexes_of_matched = (uint32_t*)malloc(sizeof(uint32_t) * result.size);
 			for (uint32_t i = 0; i < result.size; i++) {
-				bool is_suitable = false;
 				const Node node = result.values[i];
 				for (uint32_t id_idx = 0; id_idx < query.target_ids_size; id_idx++) {
 					if (compare_fields(node.id, query.ids[id_idx])) {
 						indexes_of_matched[cur_size_of_matched++] = i;
-						is_suitable = true;
 						break;
 					}
 				}
@@ -184,7 +184,7 @@ static bool _filter_node_properties(Node node, Properties_filter filter) {
 				const Field in_node_value = node.properties[prop_idx].field;
 				const Field filter_value = filter.values_to_compare[filtered_prop_idx].field;
 				assert(filter_value.type == in_node_value.type);
-				const force_comparing_result = force_compare_fields(in_node_value, filter_value);
+				const int8_t force_comparing_result = force_compare_fields(in_node_value, filter_value);
 				bool is_suitable = false;
 				switch (filter.types[prop_idx]) {
 					case EQ:
@@ -208,6 +208,7 @@ static bool _filter_node_properties(Node node, Properties_filter filter) {
 			}
 		}
 	}
+	return true;
 }
 
 static Indexes _filter_nodes(Array_node nodes, Filter_container filter_container) {
@@ -239,6 +240,10 @@ static Array_node _nodes_by_linked_node(Database* db, const Field linked_node_id
 	const Select_edges linked_edges_query = { .selection_mode = BY_LINKED_NODE, .tag_name = NULL, .node_id = linked_node_id };
 	const Array_edge linked_edges = edges(db, linked_edges_query);
 
+	if (linked_edges.size == 0) {
+		return (Array_node) { 0, NULL };
+	}
+
 	const uint32_t target_nodes_size = linked_edges.size;
 	Field* target_nodes_ids = (Field*)malloc(sizeof(Field) * target_nodes_size);
 	for (uint32_t i = 0; i < target_nodes_size; i++) {
@@ -252,10 +257,9 @@ static Array_node _nodes_by_linked_node(Database* db, const Field linked_node_id
 
 		free_edge_internal(edge);
 	}
-	free(linked_edges.values);
 
 	const Select_nodes nodes_query = {
-		.selection_mode = NODE_IDS, .tag_name = NULL, .target_ids_size = target_nodes_size, .ids = target_nodes_ids 
+		.selection_mode = NODE_IDS, .tag_name = NULL, .target_ids_size = target_nodes_size, .ids = target_nodes_ids , .filter.has_filter = false
 	};
 	Array_node target_nodes = nodes(db, nodes_query);
 
