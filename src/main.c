@@ -21,12 +21,15 @@ static void _test_insert_metrics();
 static void _test_all_metrics();
 static void _test_update_metrics();
 static void _test_delete_edges_after_node_deletion();
+static void _test_nodes_linking();
 
 int main(int argc, char** argv) {
 	//_test_insert_metrics();
 	//_test_all_metrics();
 	//_test_update_metrics();
-	_test_delete_edges_after_node_deletion();
+	//_test_delete_edges_after_node_deletion();
+	//_test_update_metrics();
+	_test_nodes_linking();
 	return 0;
 }
 
@@ -61,7 +64,7 @@ static void _test_CRUD_for_nodes() {
 	///////////////////////////////////////////////////////
 
 
-	Select_nodes get_nodes_query = { .selection_mode = ALL_NODES, .tag_name = "animals"};
+	Select_nodes get_nodes_query = { .selection_mode = ALL_NODES, .tag_name = "animals", .filter.has_filter = false};
 
 	Array_node getted_nodes = nodes(db, get_nodes_query);
 
@@ -78,7 +81,7 @@ static void _test_CRUD_for_nodes() {
 	///////////////////////////////////////////////////////
 
 	printf("Deleting 'Sharik'...");
-	delete_nodes(db, (Select_nodes) { .selection_mode = NODE_IDS, .tag_name = "animals", .target_ids_size = 1, .ids = &getted_nodes.values[0].id });
+	delete_nodes(db, (Select_nodes) { .selection_mode = NODE_IDS, .tag_name = "animals", .target_ids_size = 1, .ids = &getted_nodes.values[0].id, .filter.has_filter = false });
 
 
 	///////////////////////////////////////////////////////
@@ -86,7 +89,7 @@ static void _test_CRUD_for_nodes() {
 	///////////////////////////////////////////////////////
 
 	printf("\n\nGetting all animals again...");
-	get_nodes_query = (Select_nodes){ .selection_mode = ALL_NODES, "animals"};
+	get_nodes_query = (Select_nodes){ .selection_mode = ALL_NODES, .tag_name = "animals", .filter.has_filter = false};
 
 	getted_nodes = nodes(db, get_nodes_query);
 
@@ -151,9 +154,15 @@ static void _test_CRUD_for_edges() {
 	create_animals_tag(db);
 	create_matroskin(db);
 	create_sharik(db);
-	Array_node getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = matroskin_filter });
+	Array_node getted_nodes = nodes(db, (Select_nodes) { 
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true, 
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = matroskin_filter }
+	});
 	Node matroskin = getted_nodes.values[0];
-	getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = sharik_filter });
+	getted_nodes = nodes(db, (Select_nodes) { 
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true, 
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = sharik_filter }
+	});
 	Node sharik = getted_nodes.values[0];
 	
 	create_friendship(db);
@@ -406,9 +415,15 @@ static void _test_delete_edges_after_node_deletion() {
 	create_animals_tag(db);
 	create_matroskin(db);
 	create_sharik(db);
-	Array_node getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = matroskin_filter });
+	Array_node getted_nodes = nodes(db, (Select_nodes) { 
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true, 
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = matroskin_filter } 
+	});
 	Node matroskin = getted_nodes.values[0];
-	getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = sharik_filter });
+	getted_nodes = nodes(db, (Select_nodes) { 
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true, 
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = sharik_filter } 
+	});
 	Node sharik = getted_nodes.values[0];
 
 	create_friendship(db);
@@ -417,11 +432,141 @@ static void _test_delete_edges_after_node_deletion() {
 	Array_edge getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
 	Edge actual_friendship_edge = getted_edges.values[0];
 
-	delete_nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = matroskin_filter });
-	getted_nodes = nodes(db, (Select_nodes) { .tag_name = "animals", .selection_mode = NODE_FILTER, .predicate = matroskin_filter });
+	delete_nodes(db, (Select_nodes) {
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true,
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = matroskin_filter } 
+	});
+	getted_nodes = nodes(db, (Select_nodes) { 
+		.tag_name = "animals", .selection_mode = ALL_NODES, .filter.has_filter = true,
+		.filter.container = (Filter_container){ .type = HARDCODED_FILTER, .hardcoded_predicate = matroskin_filter }
+	});
 
 	getted_edges = edges(db, (Select_edges) { .tag_name = "friendship", .selection_mode = BY_LINKED_NODE, .node_id = matroskin.id });
 	assert(getted_edges.size == 0);
+}
+
+static void _test_nodes_linking() {
+	const int nodes_amount = 100;
+	FILE* linked_nodes_metrics_file = fopen("linked_nodes_metrics.txt", "w+");
+	_clear_db_file();
+	Database* db = init_database("db_file.txt");
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = "nodes",
+		.properties_size = 2,
+		.property_types = &((Type[2]) { NUMBER, NUMBER }),
+		.property_names = &((char* [3]) { "num1", "num2" })
+	};
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+	create_tag(db, (Create_tag) { (Tag) { EDGE_TAG_TYPE, "edges", 0, NULL, NULL } });
+
+	Node node_for_create = {
+			.tag = "nodes",
+			.id = (Field){.type = NUMBER, .number = 0},
+			.properties_size = 2,
+			.properties = &((Property[2]) {
+				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
+				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
+			})
+	};
+	
+	Node node_for_link_1 = {
+			.tag = "nodes",
+			.id = (Field){.type = NUMBER, .number = 0},
+			.properties_size = 2,
+			.properties = &((Property[2]) {
+				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
+				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
+			})
+	};
+	
+	Node node_for_link_2 = {
+			.tag = "nodes",
+			.id = (Field){.type = NUMBER, .number = 0},
+			.properties_size = 2,
+			.properties = &((Property[2]) {
+				{.name = "num1", .field = (Field){.type = NUMBER, .number = 0} },
+				{.name = "num2", .field = (Field){.type = NUMBER, .number = 0} },
+			})
+	};
+	const struct timespec start_time, finish_time;
+	for (int32_t i = 1; i <= nodes_amount; i++) {
+		if (i % (nodes_amount / 10) == 0 ) printf("%d\n", i);
+
+		node_for_create.id.number = i;
+		node_for_link_1.id.number = -i;
+		node_for_link_2.id.number = i * nodes_amount + 1; // BE SAFE BECAUSE OF OVERFLOW
+
+		node_for_create.properties[0].field.number = i;
+		if (i % 2) {
+			node_for_link_1.properties[0].field.number = -i;
+			node_for_link_2.properties[1].field.number = -i;
+		}
+		else {
+			node_for_link_1.properties[1].field.number = -i;
+			node_for_link_2.properties[0].field.number = -i;
+		}
+
+		create_node(db, (Create_node) { .node = node_for_create });
+		create_node(db, (Create_node) { .node = node_for_link_1 });
+		create_node(db, (Create_node) { .node = node_for_link_2 });
+		link_simple_nodes(db, "edges", node_for_link_1.id.number, i, node_for_link_1.id.number);
+		link_simple_nodes(db, "edges", node_for_link_2.id.number, i, node_for_link_2.id.number);
+
+		const Properties_filter main_node_num1_filter = {
+			.properties_size = 1,
+			.types = &((Property_filter_type[1]) { EQ }),
+			.values_to_compare = &((Property[1]) { (Property) { .name = "num1", .field = (Field){.type = NUMBER, .number = i} } })
+		};
+		Properties_filter one_of_linked_node_num2_filter = {
+			.properties_size = 1,
+			.types = &((Property_filter_type[1]) { EQ }),
+			.values_to_compare = &((Property[1]) { (Property) { .name = "num2", .field = (Field){.type = NUMBER, .number = -i} } }) // correct for i%2 or i%2 == 0 cases
+		};
+
+		const Select_nodes select_main_node_query = {
+			.tag_name = "nodes",
+			.selection_mode = ALL_NODES,
+			.filter = {
+				.has_filter = true,
+				.container = (Filter_container){
+					.type = PROPERTY_FILTER, 
+					.properties_filter = main_node_num1_filter
+				}
+			}
+		};
+
+		Select_nodes select_linked_nodes_query = {
+			.tag_name = "nodes",
+			.selection_mode = NODES_BY_LINKED_NODE,
+			.linked_node_id = {.type = NUMBER /*.number = <after getting>*/},
+			.filter.has_filter = true,
+			.filter.container = (Filter_container){.type = PROPERTY_FILTER, .properties_filter = one_of_linked_node_num2_filter}
+		};
+
+		clock_gettime(CLOCK_REALTIME, &start_time);
+		const Array_node getted_main_nodes = nodes(db, select_main_node_query);
+		select_linked_nodes_query.linked_node_id.number = getted_main_nodes.values[0].id.number;
+		Array_node getted_linked_nodes = nodes(db, select_linked_nodes_query);
+		clock_gettime(CLOCK_REALTIME, &finish_time);
+		assert(getted_main_nodes.size == 1);
+		assert(getted_linked_nodes.size == 1);
+		assert(i % 2 ? getted_linked_nodes.values[0].id.number == -i : getted_linked_nodes.values[0].id.number == i * nodes_amount + 1);
+		free_node_internal(getted_main_nodes.values[0]);
+		free(getted_main_nodes.values);
+		free_node_internal(getted_linked_nodes.values[0]);
+		free(getted_linked_nodes.values);
+
+		const int64_t time_diff = _calc_time_diff(start_time, finish_time);
+		char* time_diff_as_str = num_as_str(time_diff);
+		fwrite(time_diff_as_str, strlen(time_diff_as_str), 1, linked_nodes_metrics_file);
+		fwrite("\n", 1, 1, linked_nodes_metrics_file);
+		free(time_diff_as_str);
+	}
+
+	fclose(linked_nodes_metrics_file);
+	close_database(db);
 }
 
 static int64_t _calc_time_diff(struct timespec start, struct timespec finish) {

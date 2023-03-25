@@ -6,7 +6,7 @@
 typedef enum {
 	ALL_NODES,
 	NODE_IDS,
-	NODE_FILTER
+	NODES_BY_LINKED_NODE,
 } Node_selection_mode;
 
 typedef enum {
@@ -32,15 +32,46 @@ typedef struct {
 	Node node;
 } Create_node;
 
+typedef enum {
+	HARDCODED_FILTER,
+	PROPERTY_FILTER
+} Filter_type;
+
+typedef enum {
+	EQ,
+	LESS,
+	GREATER,
+	L_EQ,
+	GT_EQ
+} Property_filter_type;
+
+typedef struct {
+	uint32_t properties_size;
+	Property_filter_type* types;
+	Property* values_to_compare;
+} Properties_filter;
+
+typedef struct {
+	Filter_type type;
+	union {
+		Properties_filter properties_filter;
+		bool (*hardcoded_predicate)(Node);
+	};
+} Filter_container;
+
 typedef struct {
 	Node_selection_mode selection_mode;
+	struct {
+		bool has_filter;
+		Filter_container container;
+	} filter;
 	char* tag_name;
 	union {
 		struct {
 			uint32_t target_ids_size;
 			Field* ids;
+			Field linked_node_id;
 		};
-		bool (*predicate)(Node);
 	};
 } Select_nodes;
 

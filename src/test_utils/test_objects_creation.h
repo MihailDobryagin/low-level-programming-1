@@ -3,6 +3,11 @@
 
 #include "../db/db.h"
 
+void create_simple_tag(Database* db, char* tag_name);
+void create_simple_edge_tag(Database* db, char* tag_name);
+void create_simple_node(Database* db, char* tag_name, int32_t id);
+void link_simple_nodes(Database* db, char* edge_tag_name, int32_t edge_id, int32_t id1, int32_t id2);
+
 void create_animals_tag(Database* db);
 void create_sharik(Database* db);
 void create_matroskin(Database* db);

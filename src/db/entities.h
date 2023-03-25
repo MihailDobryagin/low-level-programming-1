@@ -75,6 +75,9 @@ typedef struct {
 void free_tag_internal(Tag tag);
 void free_node_internal(Node node);
 void free_edge_internal(Edge edge);
+void free_field_internal(Field field);
+Field copy_field(Field field);
 bool compare_fields(Field f1, Field f2);
+int8_t force_compare_fields(Field f1, Field f2);
 
 #endif // !entities_h

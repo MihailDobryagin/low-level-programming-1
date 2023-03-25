@@ -4,6 +4,57 @@
 #include "../db/entities.h"
 #include "../client/manage.h"
 
+void create_simple_tag(Database* db, char* tag_name) {
+	Tag tag = {
+		.type = NODE_TAG_TYPE,
+		.name = tag_name,
+		.properties_size = 0,
+		.property_types = NULL,
+		.property_names = NULL
+	};
+
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+}
+
+void create_simple_edge_tag(Database* db, char* tag_name) {
+	Tag tag = {
+		.type = EDGE_TAG_TYPE,
+		.name = tag_name,
+		.properties_size = 0,
+		.property_types = NULL,
+		.property_names = NULL
+	};
+
+	Create_tag create_tag_query = { tag };
+	create_tag(db, create_tag_query);
+}
+
+void create_simple_node(Database* db, char* tag_name, int32_t id) {
+	Node node = {
+		.tag = tag_name,
+		.id = (Field) {.type = NUMBER, .number = id},
+		.properties_size = 0,
+		.properties = NULL
+	};
+
+	Create_node create_node_query = { node };
+	create_node(db, create_node_query);
+}
+
+void link_simple_nodes(Database* db, char* edge_tag_name, int32_t edge_id, int32_t id1, int32_t id2) {
+	Edge friendship_edge = {
+		.tag = edge_tag_name,
+		.id = (Field){.type = NUMBER, .number= edge_id},
+		.node1_id = (Field){.type = NUMBER, .number = id1},
+		.node2_id = (Field){.type = NUMBER, .number = id2},
+		.properties_size = 0,
+		.properties = NULL
+	};
+
+	create_edge(db, (Create_edge) { friendship_edge });
+}
+
 void create_animals_tag(Database* db) {
 	Tag tag = {
 		.type = NODE_TAG_TYPE,

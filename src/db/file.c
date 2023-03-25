@@ -261,13 +261,13 @@ static void _expand_storage(Storage* storage) {
 
 	const uint64_t new_data_offset = after_target_last_header_addr;
 	uint64_t new_current_data_offset = metadata->data_offset + metadata->data_size;
-	uint64_t size_of_moved_blocks = 0;
+	uint64_t size_of_moved_data = 0;
 	for(uint32_t i = 0; i < count_of_matching_blocks; i++) {
 		const uint32_t index_of_block_to_move = blocks_to_move[i];
 		const uint32_t header_addr = metadata->headers_offset + sizeof(Header_block) * index_of_block_to_move;
 		fseek(storage->file, header_addr, SEEK_SET);
 		fread(header_buff, sizeof(Header_block), 1, storage->file);
-		size_of_moved_blocks += header_buff->data_size;
+		size_of_moved_data += header_buff->data_size;
 		uint8_t* data = (uint8_t*)malloc(header_buff->data_size);
 		fseek(storage->file, header_buff->data_offset, SEEK_SET);
 		fread(data, header_buff->data_size, 1, storage->file);
@@ -283,7 +283,7 @@ static void _expand_storage(Storage* storage) {
 	free(blocks_to_move);
 	free(header_buff);
 
-	const uint64_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_blocks;
+	const uint64_t new_data_size = metadata->data_size - sizeof(Header_block) * capacity_diff + size_of_moved_data;
 	metadata->blocks_capacity = new_capacity;
 	metadata->data_offset = new_data_offset;
 	metadata->data_size = new_data_size;
