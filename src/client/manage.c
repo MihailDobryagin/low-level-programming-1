@@ -177,38 +177,59 @@ void change_edge(Database* db, Change_edge query) {
 	update_edge(db, query.changed_edge);
 }
 
-static bool _filter_node_properties(Node node, Properties_filter filter) {
-	for (uint32_t filtered_prop_idx = 0; filtered_prop_idx < filter.properties_size; filtered_prop_idx++) {
-		for (uint32_t prop_idx = 0; prop_idx < node.properties_size; prop_idx++) {
-			if (strcmp(node.properties[prop_idx].name, filter.values_to_compare[filtered_prop_idx].name) == 0) {
-				const Field in_node_value = node.properties[prop_idx].field;
-				const Field filter_value = filter.values_to_compare[filtered_prop_idx].field;
-				assert(filter_value.type == in_node_value.type);
-				const int8_t force_comparing_result = force_compare_fields(in_node_value, filter_value);
-				bool is_suitable = false;
-				switch (filter.types[prop_idx]) {
-					case EQ:
-						if (force_comparing_result == 0) is_suitable = true;
-						break;
-					case LESS:
-						if (force_comparing_result < 0) is_suitable = true;
-						break;
-					case GREATER:
-						if (force_comparing_result > 0) is_suitable = true;
-						break;
-					case L_EQ:
-						if (force_comparing_result <= 0) is_suitable = true;
-						break;
-					case GT_EQ:
-						if (force_comparing_result >= 0) is_suitable = true;
-						break;
-					default: assert(0);
-				}
-				if (!is_suitable) return false;
+static bool _filter_terminal(Node node, Terminal_property_filter filter) {
+	for (uint32_t prop_idx = 0; prop_idx < node.properties_size; prop_idx++) {
+		if (strcmp(node.properties[prop_idx].name, filter.value_to_compare.name) == 0) {
+			const Field in_node_value = node.properties[prop_idx].field;
+			const Field filter_value = filter.value_to_compare.field;
+			assert(filter_value.type == in_node_value.type);
+			const int8_t force_comparing_result = force_compare_fields(in_node_value, filter_value);
+			bool is_suitable = false;
+			switch (filter.filter_type) {
+				case EQ:
+					if (force_comparing_result == 0) return true;
+					break;
+				case LESS:
+					if (force_comparing_result < 0) return true;
+					break;
+				case GREATER:
+					if (force_comparing_result > 0) return true;
+					break;
+				case L_EQ:
+					if (force_comparing_result <= 0) return true;
+					break;
+				case GT_EQ:
+					if (force_comparing_result >= 0) return true;
+					break;
+				default: assert(0);
 			}
+
+			return false;
 		}
 	}
-	return true;
+}
+
+static bool _filter_node_properties(Node node, Properties_filter filter) {
+	if (filter.is_terminal) {
+		const bool tmp_result = _filter_terminal(node, filter.terminal_filter);
+		if (filter.logical_operation_type == NOT_LO_TYPE) 
+			return !tmp_result; 
+		else 
+			return tmp_result;
+	}
+
+	Properties_filter* subfilters = filter.subfilters.filters;
+
+	if (filter.logical_operation_type == NOT_LO_TYPE) {
+		assert(filter.subfilters.size == 1);
+		return !_filter_node_properties(node, subfilters[0]);
+	}
+	
+	for (uint32_t i= 0; i < filter.subfilters.size; i++) {
+		const cur_result = _filter_node_properties(node, subfilters[i]);
+		if ((cur_result == true) == (filter.logical_operation_type == OR_LO_TYPE)) return cur_result;
+	}
+	return filter.logical_operation_type == AND_LO_TYPE;
 }
 
 static Indexes _filter_nodes(Array_node nodes, Filter_container filter_container) {

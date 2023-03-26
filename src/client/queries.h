@@ -45,10 +45,29 @@ typedef enum {
 	GT_EQ
 } Property_filter_type;
 
+typedef enum {
+	NOT_LO_TYPE,
+	AND_LO_TYPE,
+	OR_LO_TYPE
+} Logical_operation_type;
+
 typedef struct {
-	uint32_t properties_size;
-	Property_filter_type* types;
-	Property* values_to_compare;
+	Property_filter_type filter_type;
+	Property value_to_compare;
+} Terminal_property_filter;
+
+struct Properties_filter;
+
+typedef struct {
+	Logical_operation_type logical_operation_type;
+	bool is_terminal;
+	union {
+		Terminal_property_filter terminal_filter;
+		struct {
+			uint32_t size;
+			struct Properties_filter* filters;
+		} subfilters;
+	};
 } Properties_filter;
 
 typedef struct {

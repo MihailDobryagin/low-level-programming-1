@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 	//_test_all_metrics();
 	//_test_update_metrics();
 	//_test_delete_edges_after_node_deletion();
-	_test_nodes_linking();
+	 _test_nodes_linking();
 	return 0;
 }
 
@@ -515,14 +515,32 @@ static void _test_nodes_linking() {
 		link_simple_nodes(db, "edges", edge2_id, i, node_for_link_2.id.number);
 
 		const Properties_filter main_node_num1_filter = {
-			.properties_size = 1,
-			.types = (Property_filter_type[1]) { EQ },
-			.values_to_compare = (Property[1]) { (Property) { .name = "num1", .field = (Field){.type = NUMBER, .number = i} } }
+			.logical_operation_type = AND_LO_TYPE,
+			.is_terminal = false,
+			.subfilters = {
+				.size = 1,
+				.filters = (Properties_filter[1]){{ 
+						.logical_operation_type = AND_LO_TYPE,
+						.is_terminal = true, .terminal_filter = (Terminal_property_filter){
+						.filter_type = EQ, 
+						.value_to_compare = (Property) {.name = "num1", .field = (Field){.type = NUMBER, .number = i} }
+					}
+				}}
+			}
 		};
 		Properties_filter one_of_linked_node_num2_filter = {
-			.properties_size = 1,
-			.types = (Property_filter_type[1]) { EQ },
-			.values_to_compare = (Property[1]) { (Property) { .name = "num2", .field = (Field){.type = NUMBER, .number = -i} } } // correct for i%2 or i%2 == 0 cases
+			.logical_operation_type = AND_LO_TYPE,
+			.is_terminal = false,
+			.subfilters = {
+				.size = 1,
+				.filters = (Properties_filter[1]){{
+						.logical_operation_type = AND_LO_TYPE,
+						.is_terminal = true, .terminal_filter = (Terminal_property_filter){
+						.filter_type = EQ,
+						.value_to_compare = (Property) {.name = "num2", .field = (Field){.type = NUMBER, .number = -i} }
+					}
+				}}
+			}
 		};
 
 		const Select_nodes select_main_node_query = {
@@ -552,7 +570,7 @@ static void _test_nodes_linking() {
 		clock_gettime(CLOCK_REALTIME, &finish_time);
 		assert(getted_main_nodes.size == 1);
 		assert(getted_linked_nodes.size == 1);
-		assert(i % 2 ? getted_linked_nodes.values[0].id.number == -i : getted_linked_nodes.values[0].id.number == i * nodes_amount + 1);
+		assert(i % 2 == 0 ? getted_linked_nodes.values[0].id.number == -i : getted_linked_nodes.values[0].id.number == i * nodes_amount + 1);
 		free_node_internal(getted_main_nodes.values[0]);
 		free(getted_main_nodes.values);
 		free_node_internal(getted_linked_nodes.values[0]);
