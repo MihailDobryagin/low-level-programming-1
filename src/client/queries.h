@@ -52,7 +52,7 @@ typedef enum {
 } Logical_operation_type;
 
 typedef struct {
-	Property_filter_type filter_type;
+	Property_filter_type type;
 	Property value_to_compare;
 } Terminal_property_filter;
 

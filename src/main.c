@@ -522,7 +522,7 @@ static void _test_nodes_linking() {
 				.filters = (Properties_filter[1]){{ 
 						.logical_operation_type = AND_LO_TYPE,
 						.is_terminal = true, .terminal_filter = (Terminal_property_filter){
-						.filter_type = EQ, 
+						.type = EQ, 
 						.value_to_compare = (Property) {.name = "num1", .field = (Field){.type = NUMBER, .number = i} }
 					}
 				}}
@@ -536,7 +536,7 @@ static void _test_nodes_linking() {
 				.filters = (Properties_filter[1]){{
 						.logical_operation_type = AND_LO_TYPE,
 						.is_terminal = true, .terminal_filter = (Terminal_property_filter){
-						.filter_type = EQ,
+						.type = EQ,
 						.value_to_compare = (Property) {.name = "num2", .field = (Field){.type = NUMBER, .number = -i} }
 					}
 				}}

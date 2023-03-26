@@ -185,7 +185,7 @@ static bool _filter_terminal(Node node, Terminal_property_filter filter) {
 			assert(filter_value.type == in_node_value.type);
 			const int8_t force_comparing_result = force_compare_fields(in_node_value, filter_value);
 			bool is_suitable = false;
-			switch (filter.filter_type) {
+			switch (filter.type) {
 				case EQ:
 					if (force_comparing_result == 0) return true;
 					break;
