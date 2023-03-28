@@ -22,14 +22,23 @@ static void _test_all_metrics();
 static void _test_update_metrics();
 static void _test_delete_edges_after_node_deletion();
 static void _test_nodes_linking();
+static void _debug_for_lab3();
 
 int main(int argc, char** argv) {
 	//_test_insert_metrics();
 	//_test_all_metrics();
 	//_test_update_metrics();
 	//_test_delete_edges_after_node_deletion();
-	 _test_nodes_linking();
+	 //_test_nodes_linking();
+	_debug_for_lab3();
 	return 0;
+}
+
+static void _debug_for_lab3() {
+	Database* db = init_database("/home/mikhail/projects/LLP3/db_file.txt");
+	Array_node books = nodes(db, (Select_nodes) { .selection_mode = ALL_NODES, .filter.has_filter = false, .tag_name = "Books" });
+
+	assert(books.size == 1);
 }
 
 static void _test_CRUD_for_nodes() {

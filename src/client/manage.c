@@ -226,7 +226,7 @@ static bool _filter_node_properties(Node node, Properties_filter filter) {
 	}
 	
 	for (uint32_t i= 0; i < filter.subfilters.size; i++) {
-		const cur_result = _filter_node_properties(node, subfilters[i]);
+		const bool cur_result = _filter_node_properties(node, subfilters[i]);
 		if ((cur_result == true) == (filter.logical_operation_type == OR_LO_TYPE)) return cur_result;
 	}
 	return filter.logical_operation_type == AND_LO_TYPE;

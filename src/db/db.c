@@ -145,7 +145,7 @@ void drop_node(Database* db, char* tag_name, Field id) {
 
 		for (uint32_t i = 0; i < selected.size; i++) {
 			if (strcmp(nodes[i].tag, tag_name) == 0 && compare_fields(id, nodes[i].id)) {
-				uint32_t block_id = selected.block_ids[0];
+				uint32_t block_id = selected.block_ids[i];
 				delete_entitites(db->storage, 1, &block_id);
 				for (uint32_t i_to_free = 0; i_to_free < selected.size; i_to_free++) {
 					if (i_to_free == i) continue;
@@ -176,7 +176,7 @@ void update_node(Database* db, Node node) {
 
 		for (uint32_t i = 0; i < selected.size; i++) {
 			if (strcmp(nodes[i].tag, node.tag) == 0 && compare_fields(node.id, nodes[i].id)) {
-				uint32_t block_id = selected.block_ids[0];
+				uint32_t block_id = selected.block_ids[i];
 				Data_to_add data_to_update = { .node = node, .type = NODE_ENTITY };
 				update_entities(db->storage, 1, &block_id, &data_to_update);
 				for (uint32_t i_to_free = 0; i_to_free < selected.size; i_to_free++) {
@@ -251,7 +251,7 @@ void drop_edge(Database* db, char* tag_name, Field id) {
 
 		for (uint32_t i = 0; i < selected.size; i++) {
 			if (strcmp(edges[i].tag, tag_name) == 0 && compare_fields(id, edges[i].id)) {
-				uint32_t block_id = selected.block_ids[0];
+				uint32_t block_id = selected.block_ids[i];
 				delete_entitites(db->storage, 1, &block_id);
 				for (uint32_t i_to_free = 0; i_to_free < selected.size; i_to_free++) {
 					if (i_to_free == i) continue;
@@ -281,7 +281,7 @@ void update_edge(Database* db, Edge edge) {
 
 		for (uint32_t i = 0; i < selected.size; i++) {
 			if (strcmp(edges[i].tag, edge.tag) == 0 && compare_fields(edge.id, edges[i].id)) {
-				uint32_t block_id = selected.block_ids[0];
+				uint32_t block_id = selected.block_ids[i];
 				Data_to_add data_to_update = { .edge = edge, .type = NODE_ENTITY };
 				update_entities(db->storage, 1, &block_id, &data_to_update);
 				for (uint32_t i_to_free = 0; i_to_free < selected.size; i_to_free++) {

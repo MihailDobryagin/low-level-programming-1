@@ -308,7 +308,7 @@ static int comp_for_sorting_headers(const void* p1, const void* p2) {
 static void _force_collapse(Storage* storage) {
 	if (storage->metadata.draft_blocks_size == 0) return;
 	Metadata* const metadata = &storage->metadata;
-	const uint32_t new_capacity = metadata->blocks_size;
+	const uint32_t new_capacity = metadata->blocks_size > 10 ? metadata->blocks_size : 10;
 	const uint32_t working_blocks_amount = metadata->blocks_size - metadata->draft_blocks_size;
 	const uint64_t new_data_offset = metadata->headers_offset + sizeof(Header_block) * new_capacity;
 	// Идём слева и ищем первый попавшийся draft, потом идём справа и ищем первый working. Вставляем w в d
@@ -374,8 +374,7 @@ static void _force_collapse(Storage* storage) {
 }
 
 static void _collapse_storage(Storage* storage) {
-	if (storage->metadata.blocks_size * LIMIT_COEF_OF_DRAFT_BLOCKS > storage->metadata.draft_blocks_size) return;
-	_force_collapse(storage);
+	if (storage->metadata.draft_blocks_size >= storage->metadata.blocks_size * LIMIT_COEF_OF_DRAFT_BLOCKS) _force_collapse(storage);
 }
 
 static Serialized _serialize_tag(Tag* tag) {
